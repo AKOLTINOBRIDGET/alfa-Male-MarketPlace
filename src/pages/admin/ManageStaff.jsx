@@ -29,6 +29,12 @@ const ManageStaff = () => {
     setFormData({ name: '', role: 'Master Tailor', email: '' });
   };
 
+  const handleStatusChange = (id, newStatus) => {
+    setStaff(staff.map(member => 
+      member.id === id ? { ...member, status: newStatus } : member
+    ));
+  };
+
   return (
     <div>
       <div className="flex justify-between items-end mb-8">
@@ -57,13 +63,19 @@ const ManageStaff = () => {
               <div className="w-14 h-14 rounded-full bg-dark-200 border border-white/10 flex items-center justify-center">
                 <FaUserTie size={24} className="text-gray-400" />
               </div>
-              <span className={`px-2 py-1 rounded text-xs font-medium border ${
-                member.status === 'Available' ? 'text-green-500 bg-green-500/10 border-green-500/30' :
-                member.status === 'In Appointment' ? 'text-blue-400 bg-blue-400/10 border-blue-400/30' :
-                'text-gray-400 bg-gray-500/10 border-gray-500/30'
-              }`}>
-                {member.status}
-              </span>
+              <select 
+                value={member.status}
+                onChange={(e) => handleStatusChange(member.id, e.target.value)}
+                className={`px-2 py-1 rounded text-xs font-medium border appearance-none cursor-pointer focus:outline-none ${
+                  member.status === 'Available' ? 'text-green-500 bg-green-500/10 border-green-500/30' :
+                  member.status === 'In Appointment' ? 'text-blue-400 bg-blue-400/10 border-blue-400/30' :
+                  'text-gray-400 bg-gray-500/10 border-gray-500/30'
+                }`}
+              >
+                <option value="Available" className="bg-dark text-white">Available</option>
+                <option value="In Appointment" className="bg-dark text-white">In Appointment</option>
+                <option value="Off Duty" className="bg-dark text-white">Off Duty</option>
+              </select>
             </div>
             
             <h3 className="text-xl font-serif text-white mb-1">{member.name}</h3>
