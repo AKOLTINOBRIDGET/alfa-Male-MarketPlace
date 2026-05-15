@@ -1,8 +1,39 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { FaEnvelope, FaLock, FaGoogle, FaApple } from 'react-icons/fa';
 import { motion } from 'framer-motion';
+import { useAuth } from '../context/AuthContext';
 
 const LoginPage = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Redirect message if they were blocked (e.g., from cart guard)
+  const message = location.state?.message || null;
+  // Redirect back to where they came from (or home)
+  const from = location.state?.from || '/';
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const isAdmin = email.toLowerCase().includes('admin');
+    
+    // Mock auth
+    login({ 
+      name: email.split('@')[0], 
+      email,
+      role: isAdmin ? 'admin' : 'customer'
+    });
+    
+    if (isAdmin) {
+      navigate('/admin', { replace: true });
+    } else {
+      navigate(from, { replace: true });
+    }
+  };
+
   return (
     <div className="min-h-[calc(100vh-80px)] flex bg-dark">
       
@@ -44,7 +75,14 @@ const LoginPage = () => {
             <p className="text-gray-400">Enter your details to access your account</p>
           </div>
 
-          <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
+          {/* Message from cart guard */}
+          {message && (
+            <div className="mb-6 p-4 bg-gold-500/10 border border-gold-500/30 rounded-lg text-sm text-gold-500 text-center">
+              {message}
+            </div>
+          )}
+
+          <form className="space-y-5" onSubmit={handleSubmit}>
             
             {/* Email */}
             <div className="space-y-2">
@@ -57,6 +95,8 @@ const LoginPage = () => {
                   type="email" 
                   placeholder="john@example.com"
                   className="input-field pl-11"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
                 />
               </div>
@@ -73,6 +113,8 @@ const LoginPage = () => {
                   type="password" 
                   placeholder="••••••••"
                   className="input-field pl-11"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   required
                 />
               </div>

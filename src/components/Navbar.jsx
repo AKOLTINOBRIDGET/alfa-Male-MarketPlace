@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { FaShoppingCart, FaBars, FaTimes, FaSearch } from 'react-icons/fa';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { FaShoppingCart, FaBars, FaTimes, FaSearch, FaUser, FaSignOutAlt } from 'react-icons/fa';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const Navbar = () => {
@@ -9,22 +10,32 @@ const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const { cartCount, setIsCartOpen } = useCart();
+  const { isAuthenticated, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 50);
-    };
+    const handleScroll = () => setScrolled(window.scrollY > 50);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location]);
+
   const navLinks = [
     { name: 'Home', path: '/' },
     { name: 'Products', path: '/products' },
-    { name: 'Contact', path: '/login' },
-    { name: 'Registration', path: '/register' },
+    { name: 'Bespoke Tailoring', path: '/custom-tailoring' },
+    { name: 'FAQ', path: '/faq' },
   ];
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
 
   return (
     <header 
@@ -54,7 +65,8 @@ const Navbar = () => {
         </nav>
 
         {/* Icons */}
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-5">
+          {/* Search */}
           <div className="relative flex items-center">
             <AnimatePresence>
               {searchOpen && (
@@ -76,6 +88,7 @@ const Navbar = () => {
             </button>
           </div>
 
+          {/* Cart */}
           <button 
             onClick={() => setIsCartOpen(true)}
             className="relative text-gray-300 hover:text-gold-500 transition"
@@ -87,6 +100,33 @@ const Navbar = () => {
               </span>
             )}
           </button>
+
+          {/* Auth: Dashboard or Sign In */}
+          {isAuthenticated ? (
+            <div className="hidden md:flex items-center gap-3">
+              <Link 
+                to="/dashboard"
+                className="text-gray-300 hover:text-gold-500 transition"
+                title="My Account"
+              >
+                <FaUser size={18} />
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="text-gray-300 hover:text-red-400 transition"
+                title="Sign Out"
+              >
+                <FaSignOutAlt size={18} />
+              </button>
+            </div>
+          ) : (
+            <Link 
+              to="/login"
+              className="hidden md:inline-flex text-sm btn-outline py-2 px-4"
+            >
+              Sign In
+            </Link>
+          )}
 
           {/* Mobile Menu Toggle */}
           <button 
@@ -107,12 +147,11 @@ const Navbar = () => {
             exit={{ height: 0, opacity: 0 }}
             className="md:hidden glass overflow-hidden border-t border-white/10"
           >
-            <div className="flex flex-col items-center py-6 gap-6">
+            <div className="flex flex-col items-center py-6 gap-5">
               {navLinks.map((link) => (
                 <Link
                   key={link.name}
                   to={link.path}
-                  onClick={() => setMobileMenuOpen(false)}
                   className={`text-lg tracking-widest uppercase ${
                     location.pathname === link.path ? 'text-gold-500 font-semibold' : 'text-gray-300'
                   }`}
@@ -120,6 +159,19 @@ const Navbar = () => {
                   {link.name}
                 </Link>
               ))}
+              <div className="border-t border-white/10 w-full pt-4 mt-2 flex flex-col items-center gap-4">
+                {isAuthenticated ? (
+                  <>
+                    <Link to="/dashboard" className="text-gray-300 hover:text-gold-500 transition">My Account</Link>
+                    <button onClick={handleLogout} className="text-red-400">Sign Out</button>
+                  </>
+                ) : (
+                  <>
+                    <Link to="/login" className="btn-primary py-2 px-8">Sign In</Link>
+                    <Link to="/register" className="text-gray-400 hover:text-gold-500 text-sm">Create Account</Link>
+                  </>
+                )}
+              </div>
             </div>
           </motion.div>
         )}
