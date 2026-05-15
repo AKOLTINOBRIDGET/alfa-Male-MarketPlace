@@ -1,10 +1,16 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaBox, FaCalendarCheck, FaChartLine, FaSignOutAlt, FaUserShield } from 'react-icons/fa';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import ManageOrders from './ManageOrders';
 import ManageAppointments from './ManageAppointments';
+import ManageProducts from './ManageProducts';
+import ManageInventory from './ManageInventory';
+import ManageCustomers from './ManageCustomers';
+import ManageCoupons from './ManageCoupons';
+import ManageStaff from './ManageStaff';
+import ManageReviews from './ManageReviews';
+import { FaBox, FaCalendarCheck, FaChartLine, FaSignOutAlt, FaUserShield, FaTags, FaWarehouse, FaUsers, FaTicketAlt, FaUserTie, FaStar } from 'react-icons/fa';
 
 const AdminDashboard = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -25,6 +31,12 @@ const AdminDashboard = () => {
     { id: 'overview', label: 'Overview', icon: FaChartLine },
     { id: 'orders', label: 'Manage Orders', icon: FaBox },
     { id: 'appointments', label: 'Appointments', icon: FaCalendarCheck },
+    { id: 'products', label: 'Products', icon: FaTags },
+    { id: 'inventory', label: 'Inventory', icon: FaWarehouse },
+    { id: 'customers', label: 'Customers', icon: FaUsers },
+    { id: 'reviews', label: 'Customer Reviews', icon: FaStar },
+    { id: 'coupons', label: 'Coupons', icon: FaTicketAlt },
+    { id: 'staff', label: 'Staff Management', icon: FaUserTie },
   ];
 
   return (
@@ -145,6 +157,48 @@ const AdminDashboard = () => {
           {activeTab === 'appointments' && (
             <motion.div key="appointments" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <ManageAppointments />
+            </motion.div>
+          )}
+
+          {/* PRODUCTS TAB */}
+          {activeTab === 'products' && (
+            <motion.div key="products" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <ManageProducts />
+            </motion.div>
+          )}
+
+          {/* INVENTORY TAB */}
+          {activeTab === 'inventory' && (
+            <motion.div key="inventory" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <ManageInventory />
+            </motion.div>
+          )}
+
+          {/* CUSTOMERS TAB */}
+          {activeTab === 'customers' && (
+            <motion.div key="customers" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <ManageCustomers />
+            </motion.div>
+          )}
+
+          {/* REVIEWS TAB */}
+          {activeTab === 'reviews' && (
+            <motion.div key="reviews" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <ManageReviews />
+            </motion.div>
+          )}
+
+          {/* COUPONS TAB */}
+          {activeTab === 'coupons' && (
+            <motion.div key="coupons" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <ManageCoupons />
+            </motion.div>
+          )}
+
+          {/* STAFF TAB */}
+          {activeTab === 'staff' && (
+            <motion.div key="staff" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <ManageStaff />
             </motion.div>
           )}
 

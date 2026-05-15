@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaRulerCombined, FaCalendarAlt, FaCheckCircle, FaCut } from 'react-icons/fa';
+import { FaRulerCombined, FaCalendarAlt, FaCheckCircle, FaCut, FaPalette } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 
 const fabrics = [
@@ -10,15 +10,30 @@ const fabrics = [
   { id: 'velvet', name: 'Plush Velvet', price: 400, desc: 'Rich, deep texture that commands the room. Available in dark jewel tones.' },
 ];
 
+const colors = [
+  { id: 'midnight', name: 'Midnight Blue', hex: '#191970' },
+  { id: 'charcoal', name: 'Charcoal Grey', hex: '#36454F' },
+  { id: 'burgundy', name: 'Deep Burgundy', hex: '#800020' },
+  { id: 'olive', name: 'Olive Green', hex: '#556B2F' },
+  { id: 'black', name: 'Classic Black', hex: '#111111' },
+  { id: 'cream', name: 'Ivory Cream', hex: '#FFFFF0' },
+];
+
 const CustomTailoringPage = () => {
   const [step, setStep] = useState(1);
   const [selectedFabric, setSelectedFabric] = useState(null);
+  const [selectedColor, setSelectedColor] = useState(null);
   const [measurementType, setMeasurementType] = useState('manual'); // 'manual' or 'appointment'
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   const handleNext = () => {
     if (step === 1 && selectedFabric) setStep(2);
-    if (step === 2) setStep(3);
+    else if (step === 2 && selectedColor) setStep(3);
+    else if (step === 3) setStep(4);
+  };
+
+  const handleBack = () => {
+    if (step > 1) setStep(step - 1);
   };
 
   const handleSubmit = (e) => {
@@ -50,19 +65,24 @@ const CustomTailoringPage = () => {
           <FaCut className="text-gold-500 text-4xl mx-auto mb-4" />
           <h1 className="text-4xl md:text-5xl font-serif mb-4">Bespoke Tailoring</h1>
           <p className="text-gray-400 max-w-2xl mx-auto">
-            Experience the ultimate luxury of a suit made exclusively for you. Choose your fabric, provide your measurements, and let our master tailors do the rest.
+            Experience the ultimate luxury of a suit made exclusively for you. Choose your fabric, select your color, provide your measurements, and let our master tailors do the rest.
           </p>
         </div>
 
         {/* Progress Bar */}
-        <div className="flex justify-center mb-12">
+        <div className="flex justify-center mb-12 hidden md:flex">
           <div className="flex items-center gap-4">
             <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${step >= 1 ? 'bg-gold-500 text-dark' : 'bg-dark-100 text-gray-500 border border-white/10'}`}>1</div>
-            <div className={`w-20 h-1 ${step >= 2 ? 'bg-gold-500' : 'bg-dark-100'}`} />
+            <div className={`w-16 h-1 ${step >= 2 ? 'bg-gold-500' : 'bg-dark-100'}`} />
             <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${step >= 2 ? 'bg-gold-500 text-dark' : 'bg-dark-100 text-gray-500 border border-white/10'}`}>2</div>
-            <div className={`w-20 h-1 ${step >= 3 ? 'bg-gold-500' : 'bg-dark-100'}`} />
+            <div className={`w-16 h-1 ${step >= 3 ? 'bg-gold-500' : 'bg-dark-100'}`} />
             <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${step >= 3 ? 'bg-gold-500 text-dark' : 'bg-dark-100 text-gray-500 border border-white/10'}`}>3</div>
+            <div className={`w-16 h-1 ${step >= 4 ? 'bg-gold-500' : 'bg-dark-100'}`} />
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${step >= 4 ? 'bg-gold-500 text-dark' : 'bg-dark-100 text-gray-500 border border-white/10'}`}>4</div>
           </div>
+        </div>
+        <div className="text-center mb-8 md:hidden text-gold-500 font-serif">
+          Step {step} of 4
         </div>
 
         {/* Steps Container */}
@@ -103,13 +123,13 @@ const CustomTailoringPage = () => {
                     disabled={!selectedFabric}
                     className={`btn-primary ${!selectedFabric ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
-                    Continue to Measurements
+                    Continue to Color
                   </button>
                 </div>
               </motion.div>
             )}
 
-            {/* STEP 2: MEASUREMENTS */}
+            {/* STEP 2: COLOR */}
             {step === 2 && (
               <motion.div
                 key="step2"
@@ -117,7 +137,52 @@ const CustomTailoringPage = () => {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
               >
-                <h2 className="text-2xl font-serif text-gold-500 mb-8">Step 2: Measurement Preferences</h2>
+                <h2 className="text-2xl font-serif text-gold-500 mb-8 flex items-center gap-3">
+                  <FaPalette /> Step 2: Select Your Color
+                </h2>
+                
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                  {colors.map(color => (
+                    <div 
+                      key={color.id}
+                      onClick={() => setSelectedColor(color)}
+                      className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all duration-300 ${
+                        selectedColor?.id === color.id 
+                          ? 'border-gold-500 bg-gold-500/10' 
+                          : 'border-white/10 hover:border-white/30 bg-dark-200'
+                      }`}
+                    >
+                      <div 
+                        className={`w-12 h-12 rounded-full border-2 ${selectedColor?.id === color.id ? 'border-gold-500 shadow-lg' : 'border-white/20'}`}
+                        style={{ backgroundColor: color.hex }}
+                      />
+                      <span className="text-white font-medium">{color.name}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-10 flex justify-between">
+                  <button onClick={handleBack} className="btn-outline border-white/20 text-white hover:bg-white/10 hover:text-white">Back</button>
+                  <button 
+                    onClick={handleNext} 
+                    disabled={!selectedColor}
+                    className={`btn-primary ${!selectedColor ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    Continue to Measurements
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {/* STEP 3: MEASUREMENTS */}
+            {step === 3 && (
+              <motion.div
+                key="step3"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+              >
+                <h2 className="text-2xl font-serif text-gold-500 mb-8">Step 3: Measurement Preferences</h2>
                 
                 <div className="flex flex-col sm:flex-row gap-4 mb-8">
                   <button
@@ -181,26 +246,33 @@ const CustomTailoringPage = () => {
                 )}
 
                 <div className="mt-10 flex justify-between">
-                  <button onClick={() => setStep(1)} className="btn-outline border-white/20 text-white hover:bg-white/10 hover:text-white">Back</button>
+                  <button onClick={handleBack} className="btn-outline border-white/20 text-white hover:bg-white/10 hover:text-white">Back</button>
                   <button onClick={handleNext} className="btn-primary">Review Details</button>
                 </div>
               </motion.div>
             )}
 
-            {/* STEP 3: REVIEW */}
-            {step === 3 && (
+            {/* STEP 4: REVIEW */}
+            {step === 4 && (
               <motion.div
-                key="step3"
+                key="step4"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
               >
-                <h2 className="text-2xl font-serif text-gold-500 mb-8">Step 3: Review & Submit</h2>
+                <h2 className="text-2xl font-serif text-gold-500 mb-8">Step 4: Review & Submit</h2>
                 
                 <div className="bg-dark-200 p-6 rounded-xl border border-white/5 space-y-4 mb-8">
                   <div className="flex justify-between border-b border-white/10 pb-4">
                     <span className="text-gray-400">Selected Fabric</span>
                     <span className="font-serif text-white">{selectedFabric?.name}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-white/10 pb-4 items-center">
+                    <span className="text-gray-400">Selected Color</span>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded-full" style={{ backgroundColor: selectedColor?.hex }}></div>
+                      <span className="text-white">{selectedColor?.name}</span>
+                    </div>
                   </div>
                   <div className="flex justify-between border-b border-white/10 pb-4">
                     <span className="text-gray-400">Measurement Method</span>
@@ -220,7 +292,7 @@ const CustomTailoringPage = () => {
                   ></textarea>
 
                   <div className="mt-8 flex justify-between">
-                    <button type="button" onClick={() => setStep(2)} className="btn-outline border-white/20 text-white hover:bg-white/10 hover:text-white">Back</button>
+                    <button type="button" onClick={handleBack} className="btn-outline border-white/20 text-white hover:bg-white/10 hover:text-white">Back</button>
                     <button type="submit" className="btn-primary">Confirm Request</button>
                   </div>
                 </form>
