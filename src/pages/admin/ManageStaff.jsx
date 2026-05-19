@@ -2,12 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { FaUserTie, FaEnvelope, FaPlus } from 'react-icons/fa';
 import AdminModal from '../../components/admin/AdminModal';
-
-const initialStaff = [
-  { id: 'STF-01', name: 'Antonio Rossi', role: 'Master Tailor', email: 'antonio@alfamale.com', status: 'Available', assignedReqs: 2 },
-  { id: 'STF-02', name: 'Elena Croft', role: 'Senior Stylist', email: 'elena@alfamale.com', status: 'In Appointment', assignedReqs: 4 },
-  { id: 'STF-03', name: 'Marcus Chen', role: 'Fitting Specialist', email: 'marcus@alfamale.com', status: 'Off Duty', assignedReqs: 0 },
-];
+import { initialStaff } from '../../data/staffData';
 
 const ManageStaff = () => {
   const [staff, setStaff] = useState(initialStaff);

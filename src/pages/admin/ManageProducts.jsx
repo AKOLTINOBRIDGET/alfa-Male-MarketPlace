@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
-import { FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
+import { motion, AnimatePresence } from 'framer-motion';
+import { FaPlus, FaEdit, FaTrash, FaCloudUploadAlt } from 'react-icons/fa';
 import { products as initialProducts } from '../../data/products';
 import AdminModal from '../../components/admin/AdminModal';
+import BulkUpload from '../../data/bulkupload';
 
 const ManageProducts = () => {
   const [products, setProducts] = useState(initialProducts);
@@ -10,6 +11,7 @@ const ManageProducts = () => {
 
   // Modal States
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
   const [productToEdit, setProductToEdit] = useState(null);
   const [productToDelete, setProductToDelete] = useState(null);
 
@@ -71,6 +73,12 @@ const ManageProducts = () => {
             <option value="casual">Casual Attire</option>
             <option value="others">Accessories</option>
           </select>
+          <button 
+            onClick={() => setIsBulkUploadOpen(true)}
+            className="btn-outline flex items-center gap-2 py-2 px-4 text-sm"
+          >
+            <FaCloudUploadAlt /> Bulk Upload
+          </button>
           <button 
             onClick={() => setIsAddModalOpen(true)}
             className="btn-primary flex items-center gap-2 py-2 px-4 text-sm"
@@ -230,6 +238,38 @@ const ManageProducts = () => {
           </div>
         )}
       </AdminModal>
+
+      {/* Bulk Upload Overlay */}
+      <AnimatePresence>
+        {isBulkUploadOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsBulkUploadOpen(false)}
+              className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative z-10 w-full max-w-2xl"
+            >
+              <BulkUpload 
+                title="Bulk Upload Products"
+                description="Upload a CSV or Excel file containing product details to add multiple items at once."
+                onUploadSuccess={(file) => {
+                  console.log('Bulk upload success', file);
+                  // In a real app, parse file and add to products here
+                  setIsBulkUploadOpen(false);
+                }}
+                onCancel={() => setIsBulkUploadOpen(false)}
+              />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </div>
   );
