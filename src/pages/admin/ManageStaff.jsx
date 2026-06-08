@@ -5,7 +5,10 @@ import AdminModal from '../../components/admin/AdminModal';
 import { initialStaff } from '../../data/staffData';
 
 const ManageStaff = () => {
-  const [staff, setStaff] = useState(initialStaff);
+  const [staff, setStaff] = useState(() => {
+    const saved = localStorage.getItem('alfa_staff');
+    return saved ? JSON.parse(saved) : initialStaff;
+  });
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   
   // Form State
@@ -17,17 +20,22 @@ const ManageStaff = () => {
       id: `STF-0${staff.length + 1}`,
       ...formData,
       status: 'Available',
-      assignedReqs: 0
+      assignedReqs: 0,
+      skills: ['Fitting', 'Alteration', 'Suit']
     };
-    setStaff([...staff, newStaff]);
+    const updated = [...staff, newStaff];
+    setStaff(updated);
+    localStorage.setItem('alfa_staff', JSON.stringify(updated));
     setIsAddModalOpen(false);
     setFormData({ name: '', role: 'Master Tailor', email: '' });
   };
 
   const handleStatusChange = (id, newStatus) => {
-    setStaff(staff.map(member => 
+    const updated = staff.map(member => 
       member.id === id ? { ...member, status: newStatus } : member
-    ));
+    );
+    setStaff(updated);
+    localStorage.setItem('alfa_staff', JSON.stringify(updated));
   };
 
   return (

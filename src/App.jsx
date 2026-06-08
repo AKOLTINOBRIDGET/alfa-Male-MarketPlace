@@ -15,6 +15,7 @@ import CustomTailoringPage from './pages/CustomTailoringPage';
 import OrderHistoryPage from './pages/OrderHistoryPage';
 import FAQPage from './pages/FAQPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import TailorDashboard from './pages/tailor/TailorDashboard';
 
 function App() {
   return (
@@ -34,6 +35,7 @@ function App() {
           <Route path="/dashboard" element={<OrderHistoryPage />} />
           <Route path="/faq" element={<FAQPage />} />
           <Route path="/admin/*" element={<AdminDashboard />} />
+          <Route path="/tailor/*" element={<TailorDashboard />} />
         </Routes>
       </main>
       <Footer />

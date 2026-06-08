@@ -10,7 +10,7 @@ const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const { cartCount, setIsCartOpen } = useCart();
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -35,6 +35,13 @@ const Navbar = () => {
   const handleLogout = () => {
     logout();
     navigate('/');
+  };
+
+  const getDashboardPath = () => {
+    if (!user) return '/dashboard';
+    if (user.role === 'admin') return '/admin';
+    if (user.role === 'tailor') return '/tailor';
+    return '/dashboard';
   };
 
   return (
@@ -105,7 +112,7 @@ const Navbar = () => {
           {isAuthenticated ? (
             <div className="hidden md:flex items-center gap-3">
               <Link 
-                to="/dashboard"
+                to={getDashboardPath()}
                 className="text-gray-300 hover:text-gold-500 transition"
                 title="My Account"
               >
@@ -162,7 +169,7 @@ const Navbar = () => {
               <div className="border-t border-white/10 w-full pt-4 mt-2 flex flex-col items-center gap-4">
                 {isAuthenticated ? (
                   <>
-                    <Link to="/dashboard" className="text-gray-300 hover:text-gold-500 transition">My Account</Link>
+                    <Link to={getDashboardPath()} className="text-gray-300 hover:text-gold-500 transition">My Account</Link>
                     <button onClick={handleLogout} className="text-red-400">Sign Out</button>
                   </>
                 ) : (

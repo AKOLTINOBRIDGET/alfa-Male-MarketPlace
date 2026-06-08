@@ -209,23 +209,36 @@ const AssignTailorModal = ({ order, tailors, onAssign, onClose }) => {
 // Main ManageOrders
 // ─────────────────────────────────────────────
 const ManageOrders = () => {
-  const [orders, setOrders] = useState(initialOrders);
-  const [tailors, setTailors] = useState(initialStaff);
+  const [orders, setOrders] = useState(() => {
+    const saved = localStorage.getItem('alfa_orders');
+    return saved ? JSON.parse(saved) : initialOrders;
+  });
+  const [tailors, setTailors] = useState(() => {
+    const saved = localStorage.getItem('alfa_staff');
+    return saved ? JSON.parse(saved) : initialStaff;
+  });
   const [assigningOrder, setAssigningOrder] = useState(null);
 
   const handleStatusChange = (orderId, newStatus) => {
-    setOrders(orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+    const updated = orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o);
+    setOrders(updated);
+    localStorage.setItem('alfa_orders', JSON.stringify(updated));
   };
 
   const handleAssignTailor = (orderId, tailor) => {
     // Update order with assigned tailor
-    setOrders(orders.map(o =>
+    const updatedOrders = orders.map(o =>
       o.id === orderId ? { ...o, assignedTailor: tailor } : o
-    ));
+    );
+    setOrders(updatedOrders);
+    localStorage.setItem('alfa_orders', JSON.stringify(updatedOrders));
+
     // Increment tailor workload
-    setTailors(tailors.map(t =>
+    const updatedTailors = tailors.map(t =>
       t.id === tailor.id ? { ...t, assignedReqs: t.assignedReqs + 1 } : t
-    ));
+    );
+    setTailors(updatedTailors);
+    localStorage.setItem('alfa_staff', JSON.stringify(updatedTailors));
   };
 
   return (

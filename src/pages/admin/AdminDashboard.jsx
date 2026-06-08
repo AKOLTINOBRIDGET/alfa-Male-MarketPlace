@@ -10,6 +10,7 @@ import ManageCustomers from './ManageCustomers';
 import ManageCoupons from './ManageCoupons';
 import ManageStaff from './ManageStaff';
 import ManageReviews from './ManageReviews';
+import DashboardOverview from './DashboardOverview';
 import { FaBox, FaCalendarCheck, FaChartLine, FaSignOutAlt, FaUserShield, FaTags, FaWarehouse, FaUsers, FaTicketAlt, FaUserTie, FaStar } from 'react-icons/fa';
 
 const AdminDashboard = () => {
@@ -105,44 +106,7 @@ const AdminDashboard = () => {
               exit={{ opacity: 0, y: -10 }}
               className="space-y-6"
             >
-              <h1 className="text-3xl font-serif text-white mb-8">Dashboard Overview</h1>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {[
-                  { title: "Total Revenue", value: "$12,450", icon: FaChartLine, color: "text-green-500" },
-                  { title: "Pending Orders", value: "8", icon: FaBox, color: "text-blue-500" },
-                  { title: "New Appointments", value: "3", icon: FaCalendarCheck, color: "text-purple-500" }
-                ].map((stat, i) => (
-                  <div key={i} className="bg-[#0a0a0a] p-6 rounded-2xl border border-white/5 flex items-center gap-4">
-                    <div className={`w-14 h-14 rounded-full bg-white/5 flex items-center justify-center ${stat.color}`}>
-                      <stat.icon size={24} />
-                    </div>
-                    <div>
-                      <p className="text-gray-400 text-sm mb-1">{stat.title}</p>
-                      <p className="text-2xl font-bold font-serif">{stat.value}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Recent Activity Mock */}
-              <div className="bg-[#0a0a0a] p-8 rounded-2xl border border-white/5 mt-8">
-                <h2 className="text-xl font-serif text-gold-500 mb-6">Recent Activity</h2>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center pb-4 border-b border-white/5">
-                    <p className="text-sm text-gray-300">New Order <span className="text-gold-500">#ORD-009</span> placed by James</p>
-                    <span className="text-xs text-gray-500">2 mins ago</span>
-                  </div>
-                  <div className="flex justify-between items-center pb-4 border-b border-white/5">
-                    <p className="text-sm text-gray-300">Appointment requested by Michael (Bespoke Suit)</p>
-                    <span className="text-xs text-gray-500">1 hr ago</span>
-                  </div>
-                  <div className="flex justify-between items-center pb-4 border-b border-white/5">
-                    <p className="text-sm text-gray-300">Order <span className="text-gold-500">#ORD-005</span> delivered successfully</p>
-                    <span className="text-xs text-gray-500">Yesterday</span>
-                  </div>
-                </div>
-              </div>
+              <DashboardOverview setActiveTab={setActiveTab} />
             </motion.div>
           )}
 

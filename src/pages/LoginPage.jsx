@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { FaEnvelope, FaLock, FaGoogle, FaApple } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import { initialStaff } from '../data/staffData';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
@@ -18,17 +19,37 @@ const LoginPage = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const isAdmin = email.toLowerCase().includes('admin');
+    const emailLower = email.toLowerCase();
+    const isAdmin = emailLower.includes('admin');
     
+    // Check if it's a tailor.
+    // It's a tailor if email contains 'tailor' or matches one of the staff members in our data (excluding admin)
+    const isTailor = emailLower.includes('tailor') || 
+      (initialStaff.some(s => s.email.toLowerCase() === emailLower) && !isAdmin);
+
+    let role = 'customer';
+    if (isAdmin) {
+      role = 'admin';
+    } else if (isTailor) {
+      role = 'tailor';
+    }
+
+    // Find display name
+    const matchingStaff = initialStaff.find(s => s.email.toLowerCase() === emailLower);
+    const displayName = matchingStaff ? matchingStaff.name : email.split('@')[0];
+
     // Mock auth
     login({ 
-      name: email.split('@')[0], 
+      name: displayName, 
       email,
-      role: isAdmin ? 'admin' : 'customer'
+      role,
+      id: matchingStaff ? matchingStaff.id : (isTailor ? 'STF-01' : null)
     });
     
-    if (isAdmin) {
+    if (role === 'admin') {
       navigate('/admin', { replace: true });
+    } else if (role === 'tailor') {
+      navigate('/tailor', { replace: true });
     } else {
       navigate(from, { replace: true });
     }

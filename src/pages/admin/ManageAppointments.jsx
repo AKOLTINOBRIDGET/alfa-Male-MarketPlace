@@ -295,22 +295,35 @@ const DetailsModal = ({ appointment, onClose }) => (
 
 // ─── Main ──────────────────────────────────────────────────────────────────────
 const ManageAppointments = () => {
-  const [appointments, setAppointments] = useState(initialAppointments);
-  const [staffList, setStaffList]       = useState(initialStaff);
+  const [appointments, setAppointments] = useState(() => {
+    const saved = localStorage.getItem('alfa_appointments');
+    return saved ? JSON.parse(saved) : initialAppointments;
+  });
+  const [staffList, setStaffList]       = useState(() => {
+    const saved = localStorage.getItem('alfa_staff');
+    return saved ? JSON.parse(saved) : initialStaff;
+  });
   const [viewingAppt, setViewingAppt]   = useState(null);
   const [assigningAppt, setAssigningAppt] = useState(null);
 
   const handleStatusChange = (id, newStatus) => {
-    setAppointments(appointments.map(a => a.id === id ? { ...a, status: newStatus } : a));
+    const updated = appointments.map(a => a.id === id ? { ...a, status: newStatus } : a);
+    setAppointments(updated);
+    localStorage.setItem('alfa_appointments', JSON.stringify(updated));
   };
 
   const handleAssignStaff = (apptId, member) => {
-    setAppointments(appointments.map(a =>
+    const updatedAppts = appointments.map(a =>
       a.id === apptId ? { ...a, assignedStaff: member } : a
-    ));
-    setStaffList(staffList.map(s =>
+    );
+    setAppointments(updatedAppts);
+    localStorage.setItem('alfa_appointments', JSON.stringify(updatedAppts));
+
+    const updatedStaff = staffList.map(s =>
       s.id === member.id ? { ...s, assignedReqs: s.assignedReqs + 1 } : s
-    ));
+    );
+    setStaffList(updatedStaff);
+    localStorage.setItem('alfa_staff', JSON.stringify(updatedStaff));
   };
 
   return (
