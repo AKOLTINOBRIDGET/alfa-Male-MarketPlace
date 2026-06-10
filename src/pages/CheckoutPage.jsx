@@ -1,268 +1,330 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements } from '@stripe/react-stripe-js';
+import { FaShoppingCart, FaUser, FaCreditCard, FaCheckCircle } from 'react-icons/fa';
 import { useCart } from '../context/CartContext';
-import { FaCreditCard, FaMobileAlt, FaShieldAlt, FaCheckCircle } from 'react-icons/fa';
+import { useAuth } from '../context/AuthContext';
+import { useToastContext } from '../context/ToastContext';
+import useAsync from '../hooks/useAsync';
+import orderService from '../services/orderService';
+import paymentService from '../services/paymentService';
+import PaymentForm from '../components/checkout/PaymentForm';
+import LoadingSpinner from '../components/common/LoadingSpinner';
+import EmptyState from '../components/common/EmptyState';
+
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 const CheckoutPage = () => {
-  const { cartItems, cartTotal, cartCount } = useCart();
+  const [step, setStep] = useState(1);
+  const [shippingInfo, setShippingInfo] = useState({
+    name: '',
+    phone: '',
+    street: '',
+    city: '',
+    state: '',
+    zipcode: '',
+    country: 'USA'
+  });
+  const [clientSecret, setClientSecret] = useState('');
+  const [orderId, setOrderId] = useState('');
 
-  const [paymentMethod, setPaymentMethod] = useState('card');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
+  const { cartItems, cartTotal, clearCart } = useCart();
+  const { user } = useAuth();
+  const toast = useToastContext();
+  const navigate = useNavigate();
+  const { loading, execute } = useAsync();
 
-  // If cart is empty, redirect back or show message
-  if (cartItems.length === 0 && !isSuccess) {
-    return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center bg-dark text-white p-4">
-        <h2 className="text-3xl font-serif mb-4">Your cart is empty</h2>
-        <p className="text-gray-400 mb-6">Add some premium items before checking out.</p>
-        <Link to="/products" className="btn-primary">Browse Collections</Link>
-      </div>
-    );
-  }
+  const TAX_RATE = 0.08;
+  const SHIPPING_COST = 10;
+  const subtotal = cartTotal;
+  const tax = subtotal * TAX_RATE;
+  const total = subtotal + tax + SHIPPING_COST;
 
-  const handlePayment = (e) => {
+  const handleShippingSubmit = async (e) => {
     e.preventDefault();
-    setIsProcessing(true);
-    // Mock processing delay
-    setTimeout(() => {
-      setIsProcessing(false);
-      setIsSuccess(true);
-      // In a real app, clear cart here
-    }, 2500);
+
+    try {
+      // Create order
+      const orderData = {
+        items: cartItems.map(item => ({
+          product: item._id || item.id,
+          quantity: item.quantity,
+          variant: item.variant
+        })),
+        shippingAddress: shippingInfo,
+        billingAddress: { sameAsShipping: true },
+        paymentMethod: 'card',
+        shippingCost: SHIPPING_COST
+      };
+
+      const orderResponse = await execute(() => orderService.createOrder(orderData));
+      const createdOrder = orderResponse.data;
+      setOrderId(createdOrder._id);
+
+      // Create payment intent
+      const paymentResponse = await execute(() => 
+        paymentService.createPaymentIntent(createdOrder._id, total)
+      );
+
+      setClientSecret(paymentResponse.data.clientSecret);
+      setStep(2);
+      toast.success('Proceeding to payment...');
+    } catch (error) {
+      toast.error(error.message || 'Failed to create order');
+    }
   };
 
-  if (isSuccess) {
+  const handlePaymentSuccess = async (paymentIntent) => {
+    try {
+      await execute(() => paymentService.confirmPayment(paymentIntent.id, orderId));
+      
+      setStep(3);
+      clearCart();
+      toast.success('Payment successful! Order confirmed.');
+      
+      setTimeout(() => {
+        navigate(`/orders/${orderId}`);
+      }, 3000);
+    } catch (error) {
+      toast.error(error.message || 'Failed to confirm payment');
+    }
+  };
+
+  const handlePaymentError = (error) => {
+    toast.error(error);
+  };
+
+  if (cartItems.length === 0) {
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center bg-dark text-white p-4">
-        <motion.div 
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: "spring", stiffness: 200, damping: 20 }}
-          className="text-green-500 mb-6"
-        >
-          <FaCheckCircle size={80} />
-        </motion.div>
-        <motion.h2 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="text-4xl font-serif text-gold-500 mb-4 text-center"
-        >
-          Payment Successful
-        </motion.h2>
-        <motion.p 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="text-gray-400 text-lg mb-8 text-center max-w-md"
-        >
-          Thank you for choosing Alfa Male. Your premium order is currently being processed.
-        </motion.p>
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.7 }}
-        >
-          <Link to="/" className="btn-outline">Return to Home</Link>
-        </motion.div>
+      <div className="min-h-screen bg-dark pt-8">
+        <div className="container mx-auto px-4">
+          <EmptyState
+            icon={<FaShoppingCart size={64} />}
+            title="Your cart is empty"
+            message="Add some items to your cart to proceed with checkout"
+            actionLabel="Continue Shopping"
+            onAction={() => navigate('/products')}
+          />
+        </div>
       </div>
     );
   }
-
-  // Calculate taxes and shipping mock
-  const shippingFee = cartTotal > 500 ? 0 : 25;
-  const tax = Math.round(cartTotal * 0.18); // 18% VAT mock
-  const finalTotal = cartTotal + shippingFee + tax;
 
   return (
     <div className="min-h-screen bg-dark py-12">
-      <div className="container mx-auto px-4 md:px-8 max-w-6xl">
-        <h1 className="text-3xl md:text-4xl font-serif text-white mb-10 text-center md:text-left">Secure Checkout</h1>
+      <div className="container mx-auto px-4 max-w-6xl">
         
-        <div className="flex flex-col lg:flex-row gap-10">
-          
-          {/* Left Column - Forms */}
-          <div className="w-full lg:w-2/3 space-y-8">
-            
-            {/* Contact & Shipping */}
-            <div className="bg-dark-100 p-6 md:p-8 rounded-2xl border border-white/5">
-              <h2 className="text-2xl font-serif text-gold-500 mb-6">1. Shipping Details</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <input type="text" placeholder="First Name" className="input-field" />
-                <input type="text" placeholder="Last Name" className="input-field" />
-                <input type="email" placeholder="Email Address" className="input-field md:col-span-2" />
-                <input type="text" placeholder="Phone Number" className="input-field md:col-span-2" />
-                <input type="text" placeholder="Street Address" className="input-field md:col-span-2" />
-                <input type="text" placeholder="City / District" className="input-field" />
-                <input type="text" placeholder="Postal Code (Optional)" className="input-field" />
-              </div>
-            </div>
-
-            {/* Payment Method */}
-            <div className="bg-dark-100 p-6 md:p-8 rounded-2xl border border-white/5">
-              <h2 className="text-2xl font-serif text-gold-500 mb-6 flex items-center gap-3">
-                2. Payment Method
-                <span className="text-sm bg-green-500/10 text-green-500 px-3 py-1 rounded-full flex items-center gap-1 font-sans">
-                  <FaShieldAlt /> Secure Encrypted
-                </span>
-              </h2>
-              
-              <div className="flex flex-col sm:flex-row gap-4 mb-8">
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('card')}
-                  className={`flex-1 flex items-center justify-center gap-3 p-4 rounded-xl border-2 transition-all ${
-                    paymentMethod === 'card' 
-                      ? 'border-gold-500 bg-gold-500/5 text-white' 
-                      : 'border-white/10 text-gray-400 hover:border-white/30'
+        {/* Progress Steps */}
+        <div className="mb-12">
+          <div className="flex items-center justify-center gap-4">
+            {[
+              { num: 1, label: 'Shipping', icon: FaUser },
+              { num: 2, label: 'Payment', icon: FaCreditCard },
+              { num: 3, label: 'Confirmation', icon: FaCheckCircle }
+            ].map((s, index) => (
+              <div key={s.num} className="flex items-center">
+                <div
+                  className={`flex items-center gap-3 ${
+                    step >= s.num ? 'text-gold-500' : 'text-gray-500'
                   }`}
                 >
-                  <FaCreditCard size={20} className={paymentMethod === 'card' ? 'text-gold-500' : ''} />
-                  <span className="font-medium tracking-wide">Bank Card</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('momo')}
-                  className={`flex-1 flex items-center justify-center gap-3 p-4 rounded-xl border-2 transition-all ${
-                    paymentMethod === 'momo' 
-                      ? 'border-gold-500 bg-gold-500/5 text-white' 
-                      : 'border-white/10 text-gray-400 hover:border-white/30'
-                  }`}
-                >
-                  <FaMobileAlt size={20} className={paymentMethod === 'momo' ? 'text-gold-500' : ''} />
-                  <span className="font-medium tracking-wide">Mobile Money</span>
-                </button>
-              </div>
-
-              {/* Dynamic Payment Forms */}
-              <AnimatePresence mode="wait">
-                {paymentMethod === 'card' ? (
-                  <motion.form 
-                    key="card"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    onSubmit={handlePayment}
-                    className="space-y-5"
+                  <div
+                    className={`w-12 h-12 rounded-full flex items-center justify-center border-2 ${
+                      step >= s.num
+                        ? 'border-gold-500 bg-gold-500/10'
+                        : 'border-gray-600'
+                    }`}
                   >
-                    <div className="space-y-2">
-                      <label className="text-sm text-gray-400">Cardholder Name</label>
-                      <input type="text" placeholder="John Doe" className="input-field" required />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm text-gray-400">Card Number</label>
-                      <input type="text" placeholder="XXXX XXXX XXXX XXXX" className="input-field" maxLength="19" required />
-                    </div>
-                    <div className="grid grid-cols-2 gap-5">
-                      <div className="space-y-2">
-                        <label className="text-sm text-gray-400">Expiry Date</label>
-                        <input type="text" placeholder="MM/YY" className="input-field" maxLength="5" required />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm text-gray-400">CVV</label>
-                        <input type="text" placeholder="123" className="input-field" maxLength="4" required />
-                      </div>
-                    </div>
-                  </motion.form>
-                ) : (
-                  <motion.form 
-                    key="momo"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    onSubmit={handlePayment}
-                    className="space-y-5"
-                  >
-                    <div className="space-y-2">
-                      <label className="text-sm text-gray-400">Network Provider</label>
-                      <select className="input-field appearance-none bg-dark-200" required>
-                        <option value="">Select Network...</option>
-                        <option value="mtn">MTN Mobile Money</option>
-                        <option value="airtel">Airtel Money</option>
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm text-gray-400">Mobile Money Number</label>
-                      <div className="flex">
-                        <span className="bg-dark-200 border border-r-0 border-white/10 rounded-l-lg px-4 py-3 text-gray-400 flex items-center justify-center">
-                          +256
-                        </span>
-                        <input type="tel" placeholder="7XX XXX XXX" className="input-field rounded-l-none" maxLength="10" required />
-                      </div>
-                      <p className="text-xs text-gray-500 mt-2">A prompt will be sent to your phone to confirm the PIN.</p>
-                    </div>
-                  </motion.form>
+                    <s.icon />
+                  </div>
+                  <span className="font-medium hidden sm:inline">{s.label}</span>
+                </div>
+                {index < 2 && (
+                  <div
+                    className={`w-16 h-0.5 mx-4 ${
+                      step > s.num ? 'bg-gold-500' : 'bg-gray-600'
+                    }`}
+                  />
                 )}
-              </AnimatePresence>
-            </div>
-            
-            {/* Action Button */}
-            <button 
-              onClick={handlePayment}
-              disabled={isProcessing}
-              className={`w-full btn-primary py-4 text-lg flex items-center justify-center gap-3 ${
-                isProcessing ? 'opacity-70 cursor-not-allowed' : ''
-              }`}
-            >
-              {isProcessing ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-dark" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Processing Payment...
-                </>
-              ) : (
-                `Pay $${finalTotal}`
-              )}
-            </button>
+              </div>
+            ))}
+          </div>
+        </div>
 
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Content */}
+          <div className="lg:col-span-2">
+            
+            {/* Step 1: Shipping Information */}
+            {step === 1 && (
+              <div className="bg-dark-100 p-8 rounded-lg">
+                <h2 className="text-2xl font-serif text-white mb-6">Shipping Information</h2>
+                
+                <form onSubmit={handleShippingSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-gray-300 mb-2">Full Name *</label>
+                    <input
+                      type="text"
+                      value={shippingInfo.name}
+                      onChange={(e) => setShippingInfo({ ...shippingInfo, name: e.target.value })}
+                      required
+                      className="input-field"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-300 mb-2">Phone Number *</label>
+                    <input
+                      type="tel"
+                      value={shippingInfo.phone}
+                      onChange={(e) => setShippingInfo({ ...shippingInfo, phone: e.target.value })}
+                      required
+                      className="input-field"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-300 mb-2">Street Address *</label>
+                    <input
+                      type="text"
+                      value={shippingInfo.street}
+                      onChange={(e) => setShippingInfo({ ...shippingInfo, street: e.target.value })}
+                      required
+                      className="input-field"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-gray-300 mb-2">City *</label>
+                      <input
+                        type="text"
+                        value={shippingInfo.city}
+                        onChange={(e) => setShippingInfo({ ...shippingInfo, city: e.target.value })}
+                        required
+                        className="input-field"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-300 mb-2">State *</label>
+                      <input
+                        type="text"
+                        value={shippingInfo.state}
+                        onChange={(e) => setShippingInfo({ ...shippingInfo, state: e.target.value })}
+                        required
+                        className="input-field"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-gray-300 mb-2">Zip Code *</label>
+                      <input
+                        type="text"
+                        value={shippingInfo.zipcode}
+                        onChange={(e) => setShippingInfo({ ...shippingInfo, zipcode: e.target.value })}
+                        required
+                        className="input-field"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-300 mb-2">Country *</label>
+                      <input
+                        type="text"
+                        value={shippingInfo.country}
+                        onChange={(e) => setShippingInfo({ ...shippingInfo, country: e.target.value })}
+                        required
+                        className="input-field"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="btn-primary w-full mt-6"
+                    disabled={loading}
+                  >
+                    {loading ? <LoadingSpinner size="sm" /> : 'Continue to Payment'}
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {/* Step 2: Payment */}
+            {step === 2 && clientSecret && (
+              <Elements stripe={stripePromise} options={{ clientSecret }}>
+                <PaymentForm
+                  clientSecret={clientSecret}
+                  onSuccess={handlePaymentSuccess}
+                  onError={handlePaymentError}
+                  amount={total}
+                />
+              </Elements>
+            )}
+
+            {/* Step 3: Confirmation */}
+            {step === 3 && (
+              <div className="bg-dark-100 p-8 rounded-lg text-center">
+                <div className="text-green-500 mb-6">
+                  <FaCheckCircle size={64} className="mx-auto" />
+                </div>
+                <h2 className="text-3xl font-serif text-white mb-4">Order Confirmed!</h2>
+                <p className="text-gray-400 mb-6">
+                  Thank you for your order. You will receive a confirmation email shortly.
+                </p>
+                <p className="text-sm text-gray-500">
+                  Redirecting to order details...
+                </p>
+              </div>
+            )}
           </div>
 
-          {/* Right Column - Order Summary */}
-          <div className="w-full lg:w-1/3">
-            <div className="bg-dark-100 p-6 md:p-8 rounded-2xl border border-white/5 sticky top-24">
-              <h3 className="text-xl font-serif text-white mb-6 border-b border-white/10 pb-4">
-                Order Summary <span className="text-gray-400 text-sm ml-2">({cartCount} items)</span>
-              </h3>
+          {/* Order Summary Sidebar */}
+          <div className="lg:col-span-1">
+            <div className="bg-dark-100 p-6 rounded-lg sticky top-24">
+              <h3 className="text-xl font-serif text-white mb-4">Order Summary</h3>
               
-              <div className="space-y-4 mb-6 max-h-[40vh] overflow-y-auto custom-scrollbar pr-2">
-                {cartItems.map(item => (
-                  <div key={item.id} className="flex gap-4">
-                    <img src={item.image} alt={item.name} className="w-16 h-20 object-cover rounded border border-white/5" />
+              {/* Cart Items */}
+              <div className="space-y-4 mb-6 max-h-64 overflow-y-auto">
+                {cartItems.map((item) => (
+                  <div key={item.id} className="flex gap-3">
+                    <img
+                      src={item.image || item.images?.[0]?.url}
+                      alt={item.name}
+                      className="w-16 h-16 object-cover rounded"
+                    />
                     <div className="flex-1">
-                      <h4 className="text-sm text-gray-300 font-serif leading-tight">{item.name}</h4>
-                      <p className="text-xs text-gray-500 mt-1">Qty: {item.quantity}</p>
-                      <p className="text-gold-500 text-sm mt-2 font-medium">${item.price * item.quantity}</p>
+                      <p className="text-white text-sm">{item.name}</p>
+                      <p className="text-gray-400 text-xs">Qty: {item.quantity}</p>
                     </div>
+                    <p className="text-white">${(item.price * item.quantity).toFixed(2)}</p>
                   </div>
                 ))}
               </div>
 
-              <div className="space-y-3 text-sm border-t border-white/10 pt-6">
+              {/* Pricing */}
+              <div className="border-t border-white/10 pt-4 space-y-2">
                 <div className="flex justify-between text-gray-400">
                   <span>Subtotal</span>
-                  <span className="text-white">${cartTotal}</span>
+                  <span>${subtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-gray-400">
+                  <span>Tax (8%)</span>
+                  <span>${tax.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-gray-400">
                   <span>Shipping</span>
-                  <span className="text-white">{shippingFee === 0 ? 'Free' : `$${shippingFee}`}</span>
+                  <span>${SHIPPING_COST.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-gray-400">
-                  <span>Tax (Estimated)</span>
-                  <span className="text-white">${tax}</span>
-                </div>
-                
-                <div className="flex justify-between items-center text-lg font-serif border-t border-white/10 pt-4 mt-4 text-gold-500">
+                <div className="flex justify-between text-white text-xl font-bold pt-2 border-t border-white/10">
                   <span>Total</span>
-                  <span className="text-2xl">${finalTotal}</span>
+                  <span className="text-gold-500">${total.toFixed(2)}</span>
                 </div>
               </div>
             </div>
           </div>
-
         </div>
       </div>
     </div>
