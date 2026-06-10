@@ -3,60 +3,115 @@ import { createContext, useContext, useState, useEffect } from 'react';
 const CartContext = createContext();
 
 // eslint-disable-next-line react-refresh/only-export-components
-export const useCart = () => useContext(CartContext);
+export const useCart = () => {
+  const context = useContext(CartContext);
+  if (!context) {
+    throw new Error('useCart must be used within CartProvider');
+  }
+  return context;
+};
 
 export const CartProvider = ({ children }) => {
   const [cartItems, setCartItems] = useState(() => {
     const saved = localStorage.getItem('alfa_cart');
     return saved ? JSON.parse(saved) : [];
   });
-  
-  const [isCartOpen, setIsCartOpen] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('alfa_cart', JSON.stringify(cartItems));
   }, [cartItems]);
 
-  const addToCart = (product) => {
+  const addToCart = (product, quantity = 1, variant = null) => {
     setCartItems(prev => {
-      const existing = prev.find(item => item.id === product.id);
+      const itemKey = variant ? `${product.id}-${variant.sku}` : product.id;
+      const existing = prev.find(item => {
+        const existingKey = item.variant ? `${item.id}-${item.variant.sku}` : item.id;
+        return existingKey === itemKey;
+      });
+
       if (existing) {
-        return prev.map(item => 
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-        );
+        return prev.map(item => {
+          const existingKey = item.variant ? `${item.id}-${item.variant.sku}` : item.id;
+          return existingKey === itemKey
+            ? { ...item, quantity: item.quantity + quantity }
+            : item;
+        });
       }
-      return [...prev, { ...product, quantity: 1 }];
+
+      return [...prev, { ...product, quantity, variant }];
     });
-    setIsCartOpen(true);
   };
 
-  const removeFromCart = (id) => {
-    setCartItems(prev => prev.filter(item => item.id !== id));
+  const removeFromCart = (id, variantSku = null) => {
+    setCartItems(prev => prev.filter(item => {
+      if (variantSku) {
+        return !(item.id === id && item.variant?.sku === variantSku);
+      }
+      return item.id !== id;
+    }));
   };
 
-  const updateQuantity = (id, delta) => {
+  const updateQuantity = (id, delta, variantSku = null) => {
     setCartItems(prev => prev.map(item => {
-      if (item.id === id) {
+      const isMatch = variantSku
+        ? item.id === id && item.variant?.sku === variantSku
+        : item.id === id;
+
+      if (isMatch) {
         const newQty = item.quantity + delta;
         return newQty > 0 ? { ...item, quantity: newQty } : item;
       }
       return item;
+    }).filter(item => item.quantity > 0));
+  };
+
+  const setQuantity = (id, quantity, variantSku = null) => {
+    if (quantity <= 0) {
+      removeFromCart(id, variantSku);
+      return;
+    }
+
+    setCartItems(prev => prev.map(item => {
+      const isMatch = variantSku
+        ? item.id === id && item.variant?.sku === variantSku
+        : item.id === id;
+
+      return isMatch ? { ...item, quantity } : item;
     }));
   };
 
-  const cartTotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const clearCart = () => {
+    setCartItems([]);
+  };
+
+  const getItemQuantity = (id, variantSku = null) => {
+    const item = cartItems.find(item => {
+      if (variantSku) {
+        return item.id === id && item.variant?.sku === variantSku;
+      }
+      return item.id === id;
+    });
+    return item?.quantity || 0;
+  };
+
+  const cartTotal = cartItems.reduce((sum, item) => {
+    const price = item.variant?.price || item.price;
+    return sum + (price * item.quantity);
+  }, 0);
+
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
-    <CartContext.Provider value={{ 
-      cartItems, 
-      addToCart, 
-      removeFromCart, 
-      updateQuantity, 
-      cartTotal, 
-      cartCount,
-      isCartOpen,
-      setIsCartOpen
+    <CartContext.Provider value={{
+      cartItems,
+      addToCart,
+      removeFromCart,
+      updateQuantity,
+      setQuantity,
+      clearCart,
+      getItemQuantity,
+      cartTotal,
+      cartCount
     }}>
       {children}
     </CartContext.Provider>
