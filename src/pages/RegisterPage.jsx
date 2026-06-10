@@ -1,8 +1,60 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { FaUser, FaEnvelope, FaPhone, FaCalendarAlt, FaGraduationCap } from 'react-icons/fa';
+import { FaUser, FaEnvelope, FaLock, FaPhone } from 'react-icons/fa';
+import { useAuth } from '../context/AuthContext';
+import { useToastContext } from '../context/ToastContext';
+import LoadingSpinner from '../components/common/LoadingSpinner';
 
 const RegisterPage = () => {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+    phone: ''
+  });
+
+  const { register, loading } = useAuth();
+  const toast = useToastContext();
+  const navigate = useNavigate();
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (formData.password !== formData.confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+
+    try {
+      const response = await register({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        phone: formData.phone
+      });
+
+      if (response.success) {
+        toast.success('Registration successful! Welcome to Alfa Male.');
+        navigate('/', { replace: true });
+      }
+    } catch (error) {
+      toast.error(error.message || 'Registration failed');
+    }
+  };
   return (
     <div className="min-h-[calc(100vh-80px)] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-dark relative overflow-hidden">
       
@@ -21,53 +73,24 @@ const RegisterPage = () => {
           <p className="text-gray-400">Create an account to elevate your style journey.</p>
         </div>
 
-        <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
+        <form className="space-y-6" onSubmit={handleSubmit}>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* First Name */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-300 ml-1">First Name</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-500">
-                  <FaUser />
-                </div>
-                <input type="text" placeholder="John" className="input-field pl-11" required />
+          {/* Full Name */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-300 ml-1">Full Name</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-500">
+                <FaUser />
               </div>
-            </div>
-
-            {/* Last Name */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-300 ml-1">Last Name</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-500">
-                  <FaUser />
-                </div>
-                <input type="text" placeholder="Doe" className="input-field pl-11" required />
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* DOB */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-300 ml-1">Date of Birth</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-500">
-                  <FaCalendarAlt />
-                </div>
-                <input type="date" className="input-field pl-11" required />
-              </div>
-            </div>
-
-            {/* Telephone */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-300 ml-1">Telephone</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-500">
-                  <FaPhone />
-                </div>
-                <input type="tel" placeholder="+256..." className="input-field pl-11" required />
-              </div>
+              <input 
+                type="text" 
+                name="name"
+                placeholder="John Doe" 
+                className="input-field pl-11" 
+                value={formData.name}
+                onChange={handleChange}
+                required 
+              />
             </div>
           </div>
 
@@ -78,56 +101,82 @@ const RegisterPage = () => {
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-500">
                 <FaEnvelope />
               </div>
-              <input type="email" placeholder="john@example.com" className="input-field pl-11" required />
+              <input 
+                type="email" 
+                name="email"
+                placeholder="john@example.com" 
+                className="input-field pl-11" 
+                value={formData.email}
+                onChange={handleChange}
+                required 
+              />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Programme */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-300 ml-1">Programme / Course</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-500">
-                  <FaGraduationCap />
-                </div>
-                <select className="input-field pl-11 appearance-none bg-dark-200" required>
-                  <option value="">Select Programme</option>
-                  <option value="Computer Science">Computer Science</option>
-                  <option value="Mathematics">Mathematics</option>
-                  <option value="Biology">Biology</option>
-                  <option value="Chemistry">Chemistry</option>
-                  <option value="Physics">Physics</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Year of Study */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-300 ml-1">Year of Study</label>
-              <div className="flex gap-4 items-center h-12">
-                {['Year 1', 'Year 2', 'Year 3'].map((year) => (
-                  <label key={year} className="flex items-center gap-2 cursor-pointer text-gray-300">
-                    <input type="radio" name="yearOfStudy" value={year} className="accent-gold-500" required />
-                    <span className="text-sm">{year}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Photo */}
+          {/* Phone */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-300 ml-1">Passport Photo</label>
-            <input 
-              type="file" 
-              accept="image/*" 
-              className="w-full text-sm text-gray-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gold-500 file:text-dark hover:file:bg-gold-400 transition-all cursor-pointer" 
-            />
+            <label className="text-sm font-medium text-gray-300 ml-1">Phone Number (Optional)</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-500">
+                <FaPhone />
+              </div>
+              <input 
+                type="tel" 
+                name="phone"
+                placeholder="+1 234 567 8900" 
+                className="input-field pl-11" 
+                value={formData.phone}
+                onChange={handleChange}
+              />
+            </div>
+          </div>
+
+          {/* Password */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-300 ml-1">Password</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-500">
+                <FaLock />
+              </div>
+              <input 
+                type="password" 
+                name="password"
+                placeholder="••••••••" 
+                className="input-field pl-11" 
+                value={formData.password}
+                onChange={handleChange}
+                required 
+              />
+            </div>
+            <p className="text-xs text-gray-500 ml-1">Must be at least 6 characters with uppercase, lowercase, and number</p>
+          </div>
+
+          {/* Confirm Password */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-300 ml-1">Confirm Password</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-500">
+                <FaLock />
+              </div>
+              <input 
+                type="password" 
+                name="confirmPassword"
+                placeholder="••••••••" 
+                className="input-field pl-11" 
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                required 
+              />
+            </div>
           </div>
 
           <div className="pt-4">
-            <button type="submit" className="btn-primary w-full py-4 text-lg">
-              Create Account
+            <button 
+              type="submit" 
+              className="btn-primary w-full py-4 text-lg"
+              disabled={loading}
+            >
+              {loading ? <LoadingSpinner size="sm" /> : 'Create Account'}
             </button>
           </div>
 

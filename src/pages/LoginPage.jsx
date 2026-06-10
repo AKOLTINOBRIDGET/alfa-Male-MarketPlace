@@ -1,57 +1,43 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { FaEnvelope, FaLock, FaGoogle, FaApple } from 'react-icons/fa';
+import { FaEnvelope, FaLock } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
-import { initialStaff } from '../data/staffData';
+import { useToastContext } from '../context/ToastContext';
+import LoadingSpinner from '../components/common/LoadingSpinner';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { login } = useAuth();
+  const { login, loading } = useAuth();
+  const toast = useToastContext();
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Redirect message if they were blocked (e.g., from cart guard)
   const message = location.state?.message || null;
-  // Redirect back to where they came from (or home)
   const from = location.state?.from || '/';
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const emailLower = email.toLowerCase();
-    const isAdmin = emailLower.includes('admin');
-    
-    // Check if it's a tailor.
-    // It's a tailor if email contains 'tailor' or matches one of the staff members in our data (excluding admin)
-    const isTailor = emailLower.includes('tailor') || 
-      (initialStaff.some(s => s.email.toLowerCase() === emailLower) && !isAdmin);
 
-    let role = 'customer';
-    if (isAdmin) {
-      role = 'admin';
-    } else if (isTailor) {
-      role = 'tailor';
-    }
-
-    // Find display name
-    const matchingStaff = initialStaff.find(s => s.email.toLowerCase() === emailLower);
-    const displayName = matchingStaff ? matchingStaff.name : email.split('@')[0];
-
-    // Mock auth
-    login({ 
-      name: displayName, 
-      email,
-      role,
-      id: matchingStaff ? matchingStaff.id : (isTailor ? 'STF-01' : null)
-    });
-    
-    if (role === 'admin') {
-      navigate('/admin', { replace: true });
-    } else if (role === 'tailor') {
-      navigate('/tailor', { replace: true });
-    } else {
-      navigate(from, { replace: true });
+    try {
+      const response = await login({ email, password });
+      
+      if (response.success) {
+        toast.success('Login successful!');
+        
+        // Navigate based on role
+        const userRole = response.user.role;
+        if (userRole === 'admin') {
+          navigate('/admin', { replace: true });
+        } else if (userRole === 'tailor') {
+          navigate('/tailor', { replace: true });
+        } else {
+          navigate(from, { replace: true });
+        }
+      }
+    } catch (error) {
+      toast.error(error.message || 'Login failed');
     }
   };
 
@@ -144,23 +130,18 @@ const LoginPage = () => {
               </div>
             </div>
 
-            <button type="submit" className="btn-primary w-full mt-4 py-3.5">
-              Sign In
+            <button 
+              type="submit" 
+              className="btn-primary w-full mt-4 py-3.5"
+              disabled={loading}
+            >
+              {loading ? <LoadingSpinner size="sm" /> : 'Sign In'}
             </button>
 
             <div className="relative flex items-center py-4">
               <div className="flex-grow border-t border-white/10"></div>
-              <span className="flex-shrink-0 mx-4 text-gray-500 text-sm">or continue with</span>
+              <span className="flex-shrink-0 mx-4 text-gray-500 text-sm">or</span>
               <div className="flex-grow border-t border-white/10"></div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <button type="button" className="flex items-center justify-center gap-2 bg-dark-200 border border-white/5 hover:bg-dark-200/80 text-white py-2.5 rounded-lg transition">
-                <FaGoogle className="text-red-500" /> Google
-              </button>
-              <button type="button" className="flex items-center justify-center gap-2 bg-dark-200 border border-white/5 hover:bg-dark-200/80 text-white py-2.5 rounded-lg transition">
-                <FaApple /> Apple
-              </button>
             </div>
 
           </form>
