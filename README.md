@@ -44,3 +44,10 @@ d:\alfa_male\alfa-react\
 ├── postcss.config.js
 ├── vite.config.js
 └── package.json
+
+
+<!-- cessfully.
+Login credentials:
+- admin: admin@example.com / Admin123
+- tailor: tailor@example.com / Tailor123
+- customer: customer@example.com / Customer123 -->

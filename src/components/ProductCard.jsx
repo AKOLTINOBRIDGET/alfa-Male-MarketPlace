@@ -12,7 +12,12 @@ const ProductCard = ({ product }) => {
     e.preventDefault(); // Prevent card navigation
     e.stopPropagation();
     if (!isAuthenticated) {
-      navigate('/login', { state: { message: 'Please sign in to add items to your cart.' } });
+      navigate('/login', {
+        state: {
+          message: 'Please sign in to add items to your cart.',
+          from: `/product/${product.id}`
+        }
+      });
       return;
     }
     addToCart(product);

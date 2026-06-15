@@ -25,9 +25,11 @@ const LoginPage = () => {
       
       if (response.success) {
         toast.success('Login successful!');
-        
+
         // Navigate based on role
-        const userRole = response.user.role;
+        const storedUser = response.user || JSON.parse(localStorage.getItem('alfa_user') || 'null');
+        const userRole = storedUser?.role?.toLowerCase();
+
         if (userRole === 'admin') {
           navigate('/admin', { replace: true });
         } else if (userRole === 'tailor') {

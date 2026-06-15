@@ -1,14 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { initialStaff } from '../../data/staffData';
 import { 
-  FaBox, FaCalendarCheck, FaChartLine, FaSignOutAlt, 
-  FaUserTie, FaRulerCombined, FaEnvelope, FaClock, 
+  FaBox, FaCalendarCheck, FaSignOutAlt, 
+  FaUserTie, FaRulerCombined, FaEnvelope, 
   FaCheckCircle, FaEye, FaTimes 
 } from 'react-icons/fa';
-import AdminModal from '../../components/admin/AdminModal';
 
 // Status colors mapping
 const statusColors = {
@@ -28,34 +26,30 @@ const TailorDashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('orders');
 
-  // Local state synced with localStorage
-  const [orders, setOrders] = useState([]);
-  const [appointments, setAppointments] = useState([]);
-  const [staff, setStaff] = useState([]);
-  
+  // Local state synced with localStorage — initialized lazily to avoid set-state-in-effect
+  const [orders, setOrders] = useState(() => {
+    const saved = localStorage.getItem('alfa_orders');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [appointments, setAppointments] = useState(() => {
+    const saved = localStorage.getItem('alfa_appointments');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [staff, setStaff] = useState(() => {
+    const saved = localStorage.getItem('alfa_staff');
+    return saved ? JSON.parse(saved) : [];
+  });
+
   // Modals / Details view
   const [viewingAppt, setViewingAppt] = useState(null);
 
-  // Guard: Only tailors can access
-  if (!isAuthenticated || user?.role !== 'tailor') {
+  // Stable tailor ID — computed once via lazy initializer (avoids impure Math.random during render)
+  const [tailorId] = useState(() => user?.id || `STF-${Math.random().toString(36).slice(2)}`);
+
+  // Guard: Only tailors can access (placed AFTER all hooks)
+  if (!isAuthenticated || user?.role?.toLowerCase() !== 'tailor') {
     return <Navigate to="/login" replace />;
   }
-
-  // Load state on mount
-  useEffect(() => {
-    const savedOrders = localStorage.getItem('alfa_orders');
-    if (savedOrders) setOrders(JSON.parse(savedOrders));
-
-    const savedAppts = localStorage.getItem('alfa_appointments');
-    if (savedAppts) setAppointments(JSON.parse(savedAppts));
-
-    const savedStaff = localStorage.getItem('alfa_staff');
-    if (savedStaff) {
-      setStaff(JSON.parse(savedStaff));
-    } else {
-      setStaff(initialStaff);
-    }
-  }, []);
 
   const handleLogout = () => {
     logout();
@@ -64,18 +58,23 @@ const TailorDashboard = () => {
 
   // Find current tailor staff profile
   const currentTailor = staff.find(s => s.email.toLowerCase() === user.email.toLowerCase()) || {
-    id: user.id || 'STF-01',
+    id: tailorId,
     name: user.name || 'Tailor',
-    role: 'Master Tailor',
+    role: user.role || 'Master Tailor',
+    email: user.email || '',
     status: 'Available',
     assignedReqs: 0,
+    skills: ['Fitting', 'Alteration', 'Suit'],
   };
 
   // Handle availability status change
   const handleAvailabilityChange = (newStatus) => {
-    const updatedStaff = staff.map(s => 
-      s.email.toLowerCase() === user.email.toLowerCase() ? { ...s, status: newStatus } : s
-    );
+    const lowerEmail = user.email.toLowerCase();
+    const exists = staff.some(s => s.email.toLowerCase() === lowerEmail);
+    const updatedStaff = exists
+      ? staff.map(s => s.email.toLowerCase() === lowerEmail ? { ...s, status: newStatus } : s)
+      : [...staff, { ...currentTailor, status: newStatus }];
+
     setStaff(updatedStaff);
     localStorage.setItem('alfa_staff', JSON.stringify(updatedStaff));
   };
@@ -247,7 +246,7 @@ const TailorDashboard = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          {myOrders.map((order, idx) => (
+                          {myOrders.map((order) => (
                             <tr key={order.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                               <td className="px-6 py-4 font-mono text-gold-500 font-bold">{order.id}</td>
                               <td className="px-6 py-4">

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import authService from '../services/authService';
 import useAsync from '../hooks/useAsync';
+import { getStoredUser } from '../utils/auth';
 
 const AuthContext = createContext();
 
@@ -20,8 +21,7 @@ export const AuthProvider = ({ children }) => {
   });
 
   const [user, setUser] = useState(() => {
-    const savedUser = localStorage.getItem('alfa_user');
-    return savedUser ? JSON.parse(savedUser) : null;
+    return getStoredUser();
   });
 
   const { loading, error, execute } = useAsync();
@@ -34,6 +34,12 @@ export const AuthProvider = ({ children }) => {
       localStorage.removeItem('alfa_user');
     }
   }, [isAuthenticated, user]);
+
+  const logout = () => {
+    authService.logout();
+    setIsAuthenticated(false);
+    setUser(null);
+  };
 
   // Verify token on mount if authenticated
   useEffect(() => {
@@ -54,38 +60,25 @@ export const AuthProvider = ({ children }) => {
     };
 
     verifyAuth();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const register = async (userData) => {
-    try {
-      const response = await execute(() => authService.register(userData));
-      if (response.success) {
-        setIsAuthenticated(true);
-        setUser(response.user);
-      }
-      return response;
-    } catch (err) {
-      throw err;
+    const response = await execute(() => authService.register(userData));
+    if (response.success) {
+      setIsAuthenticated(true);
+      setUser(response.user);
     }
+    return response;
   };
 
   const login = async (credentials) => {
-    try {
-      const response = await execute(() => authService.login(credentials));
-      if (response.success) {
-        setIsAuthenticated(true);
-        setUser(response.user);
-      }
-      return response;
-    } catch (err) {
-      throw err;
+    const response = await execute(() => authService.login(credentials));
+    if (response.success) {
+      setIsAuthenticated(true);
+      setUser(response.user);
     }
-  };
-
-  const logout = () => {
-    authService.logout();
-    setIsAuthenticated(false);
-    setUser(null);
+    return response;
   };
 
   const updateUser = (updatedUser) => {

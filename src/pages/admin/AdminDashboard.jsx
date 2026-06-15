@@ -12,6 +12,7 @@ import ManageStaff from './ManageStaff';
 import ManageReviews from './ManageReviews';
 import DashboardOverview from './DashboardOverview';
 import { FaBox, FaCalendarCheck, FaChartLine, FaSignOutAlt, FaUserShield, FaTags, FaWarehouse, FaUsers, FaTicketAlt, FaUserTie, FaStar } from 'react-icons/fa';
+import { getCurrentUserSnapshot, getStoredAuth, hasRole } from '../../utils/auth';
 
 const AdminDashboard = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -19,7 +20,10 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
 
   // Guard: Only admins can access
-  if (!isAuthenticated || user?.role !== 'admin') {
+  const currentUser = getCurrentUserSnapshot(user);
+  const isAdmin = hasRole(currentUser, 'admin');
+
+  if (!(isAuthenticated || getStoredAuth()) || !isAdmin) {
     return <Navigate to="/login" replace />;
   }
 
@@ -58,8 +62,8 @@ const AdminDashboard = () => {
             <FaUserShield size={18} />
           </div>
           <div>
-            <p className="text-sm font-bold text-white">Business Owner</p>
-            <p className="text-xs text-gray-400">{user.email}</p>
+            <p className="text-sm font-bold text-white">{currentUser?.name || 'Business Owner'}</p>
+            <p className="text-xs text-gray-400">{currentUser?.email || 'admin@alfamale.com'}</p>
           </div>
         </div>
 

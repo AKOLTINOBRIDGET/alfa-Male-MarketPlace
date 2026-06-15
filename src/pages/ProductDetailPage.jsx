@@ -66,10 +66,14 @@ const ProductDetailPage = () => {
     e.preventDefault();
     if (!isAuthenticated) {
       // Redirect to login with state to indicate they tried to add to cart
-      navigate('/login', { state: { message: 'Please sign in to add items to your cart.' } });
+      navigate('/login', {
+        state: {
+          message: 'Please sign in to add items to your cart.',
+          from: `/product/${product.id}`
+        }
+      });
       return;
     }
-    // In a real app, we'd pass the selected size along with the product
     addToCart({ ...product, selectedSize: selectedSize?.name });
   };
 

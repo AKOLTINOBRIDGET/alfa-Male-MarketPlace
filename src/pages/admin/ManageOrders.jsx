@@ -1,57 +1,28 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaUserTie, FaCheckCircle, FaStar, FaBriefcase } from 'react-icons/fa';
 import AdminModal from '../../components/admin/AdminModal';
-import { initialStaff, rankTailorsForOrder } from '../../data/staffData';
-
-const initialOrders = [
-  {
-    id: 'ORD-009',
-    customer: 'James Carter',
-    email: 'james@example.com',
-    date: '2026-05-15',
-    total: 450,
-    status: 'Processing',
-    items: 'Classic Suit 1, Leather Belt',
-    assignedTailor: null,
-  },
-  {
-    id: 'ORD-008',
-    customer: 'Michael Doe',
-    email: 'mike@example.com',
-    date: '2026-05-14',
-    total: 120,
-    status: 'Shipped',
-    items: 'Office Shoe 2',
-    assignedTailor: null,
-  },
-  {
-    id: 'ORD-007',
-    customer: 'Sarah Connor',
-    email: 'sarah@example.com',
-    date: '2026-05-12',
-    total: 850,
-    status: 'Delivered',
-    items: 'Bespoke Suit 4, Luxury Watch 11',
-    assignedTailor: null,
-  },
-  {
-    id: 'ORD-010',
-    customer: 'David Osei',
-    email: 'david@example.com',
-    date: '2026-05-16',
-    total: 310,
-    status: 'Processing',
-    items: 'Bespoke Jacket, Trousers',
-    assignedTailor: null,
-  },
-];
+import { rankTailorsForOrder } from '../../data/staffData';
+import orderService from '../../services/orderService';
+import staffService from '../../services/staffService';
+import { useToastContext } from '../../context/ToastContext';
+import { getResponseList } from '../../utils/apiResponse';
 
 const statusColors = {
-  Processing: 'text-yellow-500 bg-yellow-500/10 border-yellow-500/30',
-  Shipped:    'text-blue-400  bg-blue-400/10  border-blue-400/30',
-  Delivered:  'text-green-500 bg-green-500/10 border-green-500/30',
+  Pending: 'text-yellow-500 bg-yellow-500/10 border-yellow-500/30',
+  Confirmed: 'text-blue-400 bg-blue-400/10 border-blue-400/30',
+  Processing: 'text-purple-400 bg-purple-400/10 border-purple-400/30',
+  'Ready for Fitting': 'text-fuchsia-400 bg-fuchsia-400/10 border-fuchsia-400/30',
+  Shipped: 'text-cyan-400 bg-cyan-400/10 border-cyan-400/30',
+  Delivered: 'text-green-500 bg-green-500/10 border-green-500/30',
+  Completed: 'text-teal-400 bg-teal-400/10 border-teal-400/30',
+  Cancelled: 'text-red-500 bg-red-500/10 border-red-500/30',
+  Refunded: 'text-rose-500 bg-rose-500/10 border-rose-500/30'
 };
+
+const orderStatusOptions = [
+  'Pending', 'Confirmed', 'Processing', 'Ready for Fitting', 'Shipped', 'Delivered', 'Completed', 'Cancelled', 'Refunded'
+];
 
 const availabilityColors = {
   Available:      { dot: 'bg-green-500',  label: 'text-green-400',  badge: 'border-green-500/30 bg-green-500/10' },
@@ -63,15 +34,15 @@ const availabilityColors = {
 // Assign Tailor Modal
 // ─────────────────────────────────────────────
 const AssignTailorModal = ({ order, tailors, onAssign, onClose }) => {
-  const [selected, setSelected]   = useState(order.assignedTailor?.id ?? null);
+  const [selected, setSelected] = useState(order.assignedTailor?._id ?? null);
   const [confirmed, setConfirmed] = useState(false);
-
-  const ranked = rankTailorsForOrder(tailors, order.items);
+  const itemsText = order.items?.map((item) => item.name).join(' ') || '';
+  const ranked = rankTailorsForOrder(tailors, itemsText);
 
   const handleConfirm = () => {
     if (!selected) return;
-    const tailor = tailors.find(t => t.id === selected);
-    onAssign(order.id, tailor);
+    const tailor = tailors.find((t) => t._id === selected);
+    onAssign(order._id, tailor);
     setConfirmed(true);
     setTimeout(onClose, 1200);
   };
@@ -87,7 +58,7 @@ const AssignTailorModal = ({ order, tailors, onAssign, onClose }) => {
           <FaCheckCircle size={48} className="text-green-500" />
           <p className="text-white text-lg font-serif">Tailor Assigned!</p>
           <p className="text-gray-400 text-sm">
-            {tailors.find(t => t.id === selected)?.name} has been assigned to {order.id}.
+            {tailors.find((t) => t._id === selected)?.name} has been assigned to {order.orderNumber || order._id.slice(-6)}.
           </p>
         </motion.div>
       ) : (
@@ -95,9 +66,9 @@ const AssignTailorModal = ({ order, tailors, onAssign, onClose }) => {
           {/* Order Summary */}
           <div className="mb-5 p-4 rounded-xl bg-white/5 border border-white/10">
             <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Order</p>
-            <p className="text-white font-mono font-bold">{order.id}</p>
-            <p className="text-gray-300 text-sm mt-1 truncate" title={order.items}>
-              {order.items}
+            <p className="text-white font-mono font-bold">{order.orderNumber || order._id.slice(-6)}</p>
+            <p className="text-gray-300 text-sm mt-1 truncate" title={itemsText}>
+              {itemsText}
             </p>
           </div>
 
@@ -111,21 +82,21 @@ const AssignTailorModal = ({ order, tailors, onAssign, onClose }) => {
           <div className="space-y-3 max-h-[340px] overflow-y-auto custom-scrollbar pr-1">
             {ranked.map((tailor, i) => {
               const av = availabilityColors[tailor.status] ?? availabilityColors['Off Duty'];
-              const isSelected = selected === tailor.id;
-              const skillScore = tailor.skills.filter(s =>
-                order.items.toLowerCase().includes(s.toLowerCase())
+              const isSelected = selected === tailor._id;
+              const skillScore = tailor.skills.filter((s) =>
+                itemsText.toLowerCase().includes(s.toLowerCase())
               ).length;
-              const matchedSkills = tailor.skills.filter(s =>
-                order.items.toLowerCase().includes(s.toLowerCase())
+              const matchedSkills = tailor.skills.filter((s) =>
+                itemsText.toLowerCase().includes(s.toLowerCase())
               );
 
               return (
                 <motion.button
-                  key={tailor.id}
+                  key={tailor._id}
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.05 }}
-                  onClick={() => setSelected(tailor.id)}
+                  onClick={() => setSelected(tailor._id)}
                   className={`w-full text-left p-4 rounded-xl border transition-all duration-200 ${
                     isSelected
                       ? 'border-gold-500 bg-gold-500/10 shadow-[0_0_12px_rgba(var(--color-gold-500),0.2)]'
@@ -209,37 +180,69 @@ const AssignTailorModal = ({ order, tailors, onAssign, onClose }) => {
 // Main ManageOrders
 // ─────────────────────────────────────────────
 const ManageOrders = () => {
-  const [orders, setOrders] = useState(() => {
-    const saved = localStorage.getItem('alfa_orders');
-    return saved ? JSON.parse(saved) : initialOrders;
-  });
-  const [tailors, setTailors] = useState(() => {
-    const saved = localStorage.getItem('alfa_staff');
-    return saved ? JSON.parse(saved) : initialStaff;
-  });
+  const toast = useToastContext();
+  const [orders, setOrders] = useState([]);
+  const [tailors, setTailors] = useState([]);
   const [assigningOrder, setAssigningOrder] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleStatusChange = (orderId, newStatus) => {
-    const updated = orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o);
-    setOrders(updated);
-    localStorage.setItem('alfa_orders', JSON.stringify(updated));
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [ordersResponse, tailorsResponse] = await Promise.all([
+          orderService.getOrders(),
+          staffService.getAllStaff()
+        ]);
+        setOrders(getResponseList(ordersResponse));
+        setTailors(getResponseList(tailorsResponse));
+      } catch (error) {
+        toast.error(error.message || 'Unable to load orders and tailors from the database.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, [toast]);
+
+  const handleStatusChange = async (orderId, newStatus) => {
+    try {
+      await orderService.updateOrderStatus(orderId, newStatus, 'Updated by admin');
+      setOrders((current) => current.map((o) =>
+        o._id === orderId ? { ...o, status: newStatus } : o
+      ));
+      toast.success('Order status updated.');
+    } catch (error) {
+      toast.error(error.message || 'Failed to update order status.');
+    }
   };
 
-  const handleAssignTailor = (orderId, tailor) => {
-    // Update order with assigned tailor
-    const updatedOrders = orders.map(o =>
-      o.id === orderId ? { ...o, assignedTailor: tailor } : o
-    );
-    setOrders(updatedOrders);
-    localStorage.setItem('alfa_orders', JSON.stringify(updatedOrders));
-
-    // Increment tailor workload
-    const updatedTailors = tailors.map(t =>
-      t.id === tailor.id ? { ...t, assignedReqs: t.assignedReqs + 1 } : t
-    );
-    setTailors(updatedTailors);
-    localStorage.setItem('alfa_staff', JSON.stringify(updatedTailors));
+  const handleAssignTailor = async (orderId, tailor) => {
+    try {
+      await orderService.assignTailor(orderId, tailor._id);
+      setOrders((current) => current.map((o) =>
+        o._id === orderId ? { ...o, assignedTailor: tailor } : o
+      ));
+      setTailors((current) => current.map((t) =>
+        t._id === tailor._id ? { ...t, assignedReqs: (t.assignedReqs ?? 0) + 1 } : t
+      ));
+      toast.success('Tailor assigned successfully.');
+    } catch (error) {
+      toast.error(error.message || 'Failed to assign tailor.');
+    }
   };
+
+  const formatDate = (value) => value ? new Date(value).toLocaleDateString() : '-';
+  const getOrderTotal = (order) => order.pricing?.total ?? order.total ?? 0;
+  const getItemsText = (order) => order.items?.map((item) => `${item.name} x${item.quantity}`).join(', ') || 'No items';
+
+  if (isLoading) {
+    return (
+      <div className="rounded-2xl border border-dashed border-white/10 bg-[#0a0a0a] p-10 text-center text-gray-400">
+        Loading orders from the database...
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -268,20 +271,20 @@ const ManageOrders = () => {
             <tbody>
               {orders.map((order, i) => (
                 <motion.tr
-                  key={order.id}
+                  key={order._id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.05 }}
                   className="border-b border-white/5 hover:bg-white/5 transition-colors"
                 >
-                  <td className="px-6 py-4 font-mono text-gold-500 font-bold">{order.id}</td>
+                  <td className="px-6 py-4 font-mono text-gold-500 font-bold">{order.orderNumber || order._id.slice(-6)}</td>
                   <td className="px-6 py-4">
-                    <p className="text-white font-medium">{order.customer}</p>
-                    <p className="text-xs text-gray-500">{order.email}</p>
+                    <p className="text-white font-medium">{order.customer?.name || 'Unknown'}</p>
+                    <p className="text-xs text-gray-500">{order.customer?.email || ''}</p>
                   </td>
-                  <td className="px-6 py-4">{order.date}</td>
-                  <td className="px-6 py-4 max-w-[180px] truncate" title={order.items}>{order.items}</td>
-                  <td className="px-6 py-4 font-serif text-white">${order.total}</td>
+                  <td className="px-6 py-4">{formatDate(order.createdAt)}</td>
+                  <td className="px-6 py-4 max-w-[180px] truncate" title={getItemsText(order)}>{getItemsText(order)}</td>
+                  <td className="px-6 py-4 font-serif text-white">${getOrderTotal(order)}</td>
 
                   {/* Assigned Tailor */}
                   <td className="px-6 py-4 text-center">
@@ -307,12 +310,12 @@ const ManageOrders = () => {
                     <div className="flex items-center justify-center gap-2">
                       <select
                         value={order.status}
-                        onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                        onChange={(e) => handleStatusChange(order._id, e.target.value)}
                         className="bg-dark border border-white/20 text-white text-xs rounded px-2 py-1.5 focus:outline-none focus:border-gold-500"
                       >
-                        <option value="Processing">Processing</option>
-                        <option value="Shipped">Shipped</option>
-                        <option value="Delivered">Delivered</option>
+                        {orderStatusOptions.map((statusValue) => (
+                          <option key={statusValue} value={statusValue}>{statusValue}</option>
+                        ))}
                       </select>
                       <button
                         onClick={() => setAssigningOrder(order)}

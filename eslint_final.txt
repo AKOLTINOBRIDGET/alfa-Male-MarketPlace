@@ -1,0 +1,145 @@
+﻿
+D:\alfa_male\alfa-react\src\components\common\ErrorBoundary.jsx
+  9:35  error  '_error' is defined but never used  no-unused-vars
+
+D:\alfa_male\alfa-react\src\hooks\useFetch.js
+  10:3  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+   8 |   // Keep a stable ref to the latest fetchFunction so we avoid stale closures
+   9 |   const fetchFunctionRef = useRef(fetchFunction);
+> 10 |   fetchFunctionRef.current = fetchFunction;
+     |   ^^^^^^^^^^^^^^^^^^^^^^^^ Cannot update ref during render
+  11 |
+  12 |   const fetchData = useCallback(async () => {
+  13 |     setLoading(true);                                                                                                                                                                                                                    react-hooks/refs
+  27:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  25 |
+  26 |   useEffect(() => {
+> 27 |     fetchData();
+     |     ^^^^^^^^^ Avoid calling setState() directly within an effect
+  28 |   }, [fetchData]);
+  29 |
+  30 |   const refetch = useCallback(() => {  react-hooks/set-state-in-effect
+
+D:\alfa_male\alfa-react\src\pages\admin\ManageCustomers.jsx
+  27:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  25 |
+  26 |   useEffect(() => {
+> 27 |     loadUsers();
+     |     ^^^^^^^^^ Avoid calling setState() directly within an effect
+  28 |   }, [loadUsers]);
+  29 |
+  30 |   const handleChange = (e) => {  react-hooks/set-state-in-effect
+
+D:\alfa_male\alfa-react\src\pages\tailor\TailorDashboard.jsx
+   37:49  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+  35 |   const [viewingAppt, setViewingAppt] = useState(null);
+  36 |
+> 37 |   const tailorIdRef = useRef(user?.id || `STF-${Math.random().toString(36).slice(2)}`);
+     |                                                 ^^^^^^^^^^^^^ Cannot call impure function
+  38 |   const tailorId = tailorIdRef.current;
+  39 |
+  40 |   // Load state on mount                                                                                                                                                                                                                                                                                                                                                                                                                                   react-hooks/purity
+   38:20  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+  36 |
+  37 |   const tailorIdRef = useRef(user?.id || `STF-${Math.random().toString(36).slice(2)}`);
+> 38 |   const tailorId = tailorIdRef.current;
+     |                    ^^^^^^^^^^^^^^^^^^^ Cannot access ref value during render
+  39 |
+  40 |   // Load state on mount
+  41 |   useEffect(() => {                                                                                                                                                                                                                                                                                                                                                                                                                                                                 react-hooks/refs
+   43:22  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  41 |   useEffect(() => {
+  42 |     const savedOrders = localStorage.getItem('alfa_orders');
+> 43 |     if (savedOrders) setOrders(JSON.parse(savedOrders));
+     |                      ^^^^^^^^^ Avoid calling setState() directly within an effect
+  44 |
+  45 |     const savedAppts = localStorage.getItem('alfa_appointments');
+  46 |     if (savedAppts) setAppointments(JSON.parse(savedAppts));  react-hooks/set-state-in-effect
+   88:34  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+  86 |
+  87 |   // Filter orders assigned to this tailor
+> 88 |   const myOrders = orders.filter(order => order.assignedTailor?.id === currentTailor.id);
+     |                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Passing a ref to a function may read its value during render
+  89 |
+  90 |   // Filter appointments assigned to this tailor
+  91 |   const myAppointments = appointments.filter(appt => appt.assignedStaff?.id === currentTailor.id);                                                                                                                                                                                                                                                                             react-hooks/refs
+   91:46  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+  89 |
+  90 |   // Filter appointments assigned to this tailor
+> 91 |   const myAppointments = appointments.filter(appt => appt.assignedStaff?.id === currentTailor.id);
+     |                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Passing a ref to a function may read its value during render
+  92 |
+  93 |   // Handle order status update
+  94 |   const handleOrderStatusChange = (orderId, newStatus) => {                                                                                                                                                                                                                                                                                                             react-hooks/refs
+  131:74  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+  129 |             </div>
+  130 |             <div>
+> 131 |               <p className="text-sm font-bold text-white leading-tight">{currentTailor.name}</p>
+      |                                                                          ^^^^^^^^^^^^^^^^^^ Cannot access ref value during render
+  132 |               <p className="text-xs text-gold-500">{currentTailor.role}</p>
+  133 |             </div>
+  134 |           </div>                                                                                                                                                                                                                                                                                                                            react-hooks/refs
+  132:53  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+  130 |             <div>
+  131 |               <p className="text-sm font-bold text-white leading-tight">{currentTailor.name}</p>
+> 132 |               <p className="text-xs text-gold-500">{currentTailor.role}</p>
+      |                                                     ^^^^^^^^^^^^^^^^^^ Cannot access ref value during render
+  133 |             </div>
+  134 |           </div>
+  135 |                                                                                                                                                                                                                                                                                                                                                                    react-hooks/refs
+  140:22  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+  138 |             <label className="text-[10px] text-gray-500 uppercase tracking-wider block mb-1">My Status</label>
+  139 |             <select
+> 140 |               value={currentTailor.status}
+      |                      ^^^^^^^^^^^^^^^^^^^^ Cannot access ref value during render
+  141 |               onChange={(e) => handleAvailabilityChange(e.target.value)}
+  142 |               className="w-full bg-dark-200 border border-white/10 text-xs rounded px-2.5 py-1.5 focus:outline-none focus:border-gold-500"
+  143 |             >                                                                                                                                                                                                                    react-hooks/refs
+
+Γ£û 12 problems (12 errors, 0 warnings)
+

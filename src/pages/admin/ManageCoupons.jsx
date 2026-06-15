@@ -1,41 +1,76 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FaPlus, FaTrash } from 'react-icons/fa';
 import AdminModal from '../../components/admin/AdminModal';
-
-const initialCoupons = [
-  { id: 1, code: 'SUMMER20', type: 'Percentage', value: 20, uses: 145, maxUses: null, expiry: '2026-08-31', status: 'Active' },
-  { id: 2, code: 'WELCOME50', type: 'Fixed Amount', value: 50, uses: 32, maxUses: 100, expiry: '2026-12-31', status: 'Active' },
-  { id: 3, code: 'FLASHX', type: 'Percentage', value: 30, uses: 500, maxUses: 500, expiry: '2026-05-01', status: 'Expired' },
-];
+import couponService from '../../services/couponService';
+import { useToastContext } from '../../context/ToastContext';
+import { getResponseData, getResponseList } from '../../utils/apiResponse';
 
 const ManageCoupons = () => {
-  const [coupons, setCoupons] = useState(initialCoupons);
+  const toast = useToastContext();
+  const [coupons, setCoupons] = useState([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  
-  // Form State
-  const [formData, setFormData] = useState({ code: '', type: 'Percentage', value: '', maxUses: '', expiry: '' });
+  const [formData, setFormData] = useState({ code: '', value: '', maxUses: '', expiry: '' });
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleDelete = (id) => {
-    setCoupons(coupons.filter(c => c.id !== id));
-  };
-
-  const handleAddSubmit = (e) => {
-    e.preventDefault();
-    const newCoupon = {
-      id: Date.now(),
-      code: formData.code.toUpperCase(),
-      type: formData.type,
-      value: parseInt(formData.value),
-      uses: 0,
-      maxUses: formData.maxUses ? parseInt(formData.maxUses) : null,
-      expiry: formData.expiry,
-      status: new Date(formData.expiry) > new Date() ? 'Active' : 'Expired'
+  useEffect(() => {
+    const loadCoupons = async () => {
+      try {
+        const response = await couponService.getCoupons();
+        setCoupons(getResponseList(response));
+      } catch (error) {
+        toast.error(error.message || 'Unable to load coupons from the database.');
+      } finally {
+        setIsLoading(false);
+      }
     };
-    setCoupons([newCoupon, ...coupons]);
-    setIsAddModalOpen(false);
-    setFormData({ code: '', type: 'Percentage', value: '', maxUses: '', expiry: '' });
+
+    loadCoupons();
+  }, [toast]);
+
+  const handleDelete = async (id) => {
+    try {
+      await couponService.deleteCoupon(id);
+      setCoupons((current) => current.filter((coupon) => coupon._id !== id));
+      toast.success('Coupon deleted.');
+    } catch (error) {
+      toast.error(error.message || 'Failed to delete coupon.');
+    }
   };
+
+  const handleAddSubmit = async (e) => {
+    e.preventDefault();
+
+    try {
+      const payload = {
+        code: formData.code.toUpperCase(),
+        discountPercentage: parseInt(formData.value, 10),
+        expiryDate: formData.expiry,
+        usageLimit: formData.maxUses ? parseInt(formData.maxUses, 10) : 100
+      };
+      const response = await couponService.createCoupon(payload);
+      const newCoupon = getResponseData(response, payload);
+      setCoupons((current) => [newCoupon, ...current]);
+      setIsAddModalOpen(false);
+      setFormData({ code: '', value: '', maxUses: '', expiry: '' });
+      toast.success('Coupon created successfully.');
+    } catch (error) {
+      toast.error(error.message || 'Failed to create coupon.');
+    }
+  };
+
+  const formatStatus = (coupon) => {
+    const isExpired = new Date(coupon.expiryDate) <= new Date();
+    return coupon.isActive && !isExpired ? 'Active' : 'Expired';
+  };
+
+  if (isLoading) {
+    return (
+      <div className="rounded-2xl border border-dashed border-white/10 bg-[#0a0a0a] p-10 text-center text-gray-400">
+        Loading coupons from the database...
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -68,7 +103,7 @@ const ManageCoupons = () => {
             <tbody>
               {coupons.map((coupon, i) => (
                 <motion.tr 
-                  key={coupon.id}
+                  key={coupon._id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.05 }}
@@ -79,23 +114,19 @@ const ManageCoupons = () => {
                       {coupon.code}
                     </span>
                   </td>
-                  <td className="px-6 py-4 font-medium text-white">
-                    {coupon.type === 'Percentage' ? `${coupon.value}% OFF` : `$${coupon.value} OFF`}
-                  </td>
-                  <td className="px-6 py-4">
-                    {coupon.uses} {coupon.maxUses ? `/ ${coupon.maxUses}` : '(Unlimited)'}
-                  </td>
-                  <td className="px-6 py-4 text-gray-400">{coupon.expiry}</td>
+                  <td className="px-6 py-4 font-medium text-white">{coupon.discountPercentage}% OFF</td>
+                  <td className="px-6 py-4">{coupon.timesUsed} / {coupon.usageLimit || 'Unlimited'}</td>
+                  <td className="px-6 py-4 text-gray-400">{new Date(coupon.expiryDate).toLocaleDateString()}</td>
                   <td className="px-6 py-4 text-center">
                     <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      coupon.status === 'Active' ? 'text-green-500 bg-green-500/10' : 'text-red-500 bg-red-500/10'
+                      formatStatus(coupon) === 'Active' ? 'text-green-500 bg-green-500/10' : 'text-red-500 bg-red-500/10'
                     }`}>
-                      {coupon.status}
+                      {formatStatus(coupon)}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-center">
                     <button 
-                      onClick={() => handleDelete(coupon.id)}
+                      onClick={() => handleDelete(coupon._id)}
                       className="text-red-400 hover:text-red-300 transition" 
                       title="Delete Coupon"
                     >
@@ -109,42 +140,31 @@ const ManageCoupons = () => {
         </div>
       </div>
 
-      {/* Add Coupon Modal */}
       <AdminModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} title="Create New Coupon">
         <form onSubmit={handleAddSubmit} className="space-y-4">
           <div>
             <label className="text-sm text-gray-400 mb-1 block">Promo Code</label>
-            <input type="text" required value={formData.code} onChange={e => setFormData({...formData, code: e.target.value.toUpperCase()})} className="input-field font-mono uppercase" placeholder="e.g. WINTER50" />
+            <input type="text" required value={formData.code} onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })} className="input-field font-mono uppercase" placeholder="e.g. WINTER50" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm text-gray-400 mb-1 block">Discount Type</label>
-              <select value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})} className="input-field">
-                <option value="Percentage">Percentage (%)</option>
-                <option value="Fixed Amount">Fixed Amount ($)</option>
-              </select>
+              <label className="text-sm text-gray-400 mb-1 block">Discount Percentage</label>
+              <input type="number" required min="1" max="100" value={formData.value} onChange={(e) => setFormData({ ...formData, value: e.target.value })} className="input-field" placeholder="20" />
             </div>
             <div>
-              <label className="text-sm text-gray-400 mb-1 block">Value</label>
-              <input type="number" required min="1" value={formData.value} onChange={e => setFormData({...formData, value: e.target.value})} className="input-field" placeholder={formData.type === 'Percentage' ? '20' : '50'} />
+              <label className="text-sm text-gray-400 mb-1 block">Max Uses</label>
+              <input type="number" min="1" value={formData.maxUses} onChange={(e) => setFormData({ ...formData, maxUses: e.target.value })} className="input-field" placeholder="Leave blank for unlimited" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm text-gray-400 mb-1 block">Max Uses (Optional)</label>
-              <input type="number" min="1" value={formData.maxUses} onChange={e => setFormData({...formData, maxUses: e.target.value})} className="input-field" placeholder="Leave blank for unlimited" />
-            </div>
-            <div>
-              <label className="text-sm text-gray-400 mb-1 block">Expiry Date</label>
-              <input type="date" required value={formData.expiry} onChange={e => setFormData({...formData, expiry: e.target.value})} className="input-field" />
-            </div>
+          <div>
+            <label className="text-sm text-gray-400 mb-1 block">Expiry Date</label>
+            <input type="date" required value={formData.expiry} onChange={(e) => setFormData({ ...formData, expiry: e.target.value })} className="input-field" />
           </div>
           <div className="pt-4 flex gap-3">
             <button type="submit" className="flex-1 btn-primary py-2 text-sm">Generate Coupon</button>
           </div>
         </form>
       </AdminModal>
-
     </div>
   );
 };

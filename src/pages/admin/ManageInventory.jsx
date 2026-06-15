@@ -1,55 +1,121 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaPlus, FaEdit, FaFileDownload, FaCloudUploadAlt } from 'react-icons/fa';
 import AdminModal from '../../components/admin/AdminModal';
 import BulkUpload from '../../data/bulkupload';
-
-const initialInventory = [
-  { id: 'INV-01', item: 'Italian Premium Wool (Fabric)', type: 'Raw Material', stock: 150, unit: 'yards', threshold: 50 },
-  { id: 'INV-02', item: 'Mulberry Silk Blend (Fabric)', type: 'Raw Material', stock: 20, unit: 'yards', threshold: 30 },
-  { id: 'INV-03', item: 'Classic Suit 4', type: 'Ready-to-Wear', stock: 12, unit: 'units', threshold: 10 },
-  { id: 'INV-04', item: 'Luxury Watch 11', type: 'Ready-to-Wear', stock: 5, unit: 'units', threshold: 10 },
-  { id: 'INV-05', item: 'Office Shoe 15 (Size 42)', type: 'Ready-to-Wear', stock: 0, unit: 'units', threshold: 5 },
-];
+import inventoryService from '../../services/inventoryService';
+import productService from '../../services/productService';
+import { useToastContext } from '../../context/ToastContext';
+import { getResponseData, getResponseList } from '../../utils/apiResponse';
 
 const ManageInventory = () => {
-  const [inventory, setInventory] = useState(initialInventory);
+  const toast = useToastContext();
+  const [inventory, setInventory] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Modal States
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
   const [itemToEdit, setItemToEdit] = useState(null);
   const [isReportOpen, setIsReportOpen] = useState(false);
 
-  // Form State
-  const [formData, setFormData] = useState({ id: '', item: '', type: 'Ready-to-Wear', stock: '', unit: 'units', threshold: '' });
+  const [formData, setFormData] = useState({ product: '', sku: '', quantity: '', unit: 'units' });
 
-  // Handlers
-  const handleAddSubmit = (e) => {
-    e.preventDefault();
-    const newItem = {
-      ...formData,
-      stock: parseInt(formData.stock),
-      threshold: parseInt(formData.threshold)
+  useEffect(() => {
+    const loadInventory = async () => {
+      try {
+        const [inventoryRes, productsRes] = await Promise.all([
+          inventoryService.getInventory(),
+          productService.getProducts({ limit: 100 })
+        ]);
+
+        setInventory(getResponseList(inventoryRes));
+        setProducts(getResponseList(productsRes));
+      } catch (error) {
+        toast.error(error.message || 'Unable to load inventory data from the database.');
+      } finally {
+        setIsLoading(false);
+      }
     };
-    setInventory([newItem, ...inventory]);
-    setIsAddModalOpen(false);
-    setFormData({ id: '', item: '', type: 'Ready-to-Wear', stock: '', unit: 'units', threshold: '' });
+
+    loadInventory();
+  }, [toast]);
+
+
+  const buildItemDisplay = (item) => {
+    return {
+      id: item._id || item.id,
+      sku: item.sku || item.product?.sku || item.id || 'N/A',
+      item: item.product?.name || item.item || 'Unnamed Item',
+      type: item.product?.category || item.type || 'Inventory',
+      stock: item.quantity ?? item.stock ?? 0,
+      unit: item.unit || 'units',
+      threshold: item.threshold ?? 10,
+      status: item.status || (item.quantity === 0 ? 'Out of Stock' : item.quantity < 10 ? 'Low Stock' : 'In Stock')
+    };
   };
 
-  const handleEditSubmit = (e) => {
+  const inventoryDisplay = inventory.map(buildItemDisplay);
+
+  const handleAddSubmit = async (e) => {
     e.preventDefault();
-    setInventory(inventory.map(item => 
-      item.id === itemToEdit.id ? { 
-        ...itemToEdit, 
-        stock: parseInt(itemToEdit.stock),
-        threshold: parseInt(itemToEdit.threshold)
-      } : item
-    ));
-    setItemToEdit(null);
+
+    if (!formData.product) {
+      toast.error('Select a product to create inventory for.');
+      return;
+    }
+
+    try {
+      const payload = {
+        product: formData.product,
+        sku: formData.sku || '',
+        quantity: parseInt(formData.quantity, 10)
+      };
+
+      const response = await inventoryService.createInventoryItem(payload);
+      setInventory((current) => [getResponseData(response, payload), ...current]);
+      setIsAddModalOpen(false);
+      setFormData({ product: '', sku: '', quantity: '', unit: 'units' });
+      toast.success('Inventory item created successfully.');
+    } catch (error) {
+      toast.error(error.message || 'Failed to create inventory item.');
+    }
   };
 
-  const lowStockItems = inventory.filter(item => item.stock <= item.threshold);
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!itemToEdit) {
+      return;
+    }
+
+    try {
+      const payload = {
+        quantity: parseInt(itemToEdit.stock, 10)
+      };
+      const response = await inventoryService.updateInventoryItem(itemToEdit._id || itemToEdit.id, payload);
+      const updatedItem = getResponseData(response, { ...itemToEdit, ...payload });
+      setInventory((current) => current.map((item) =>
+        (item._id || item.id) === (updatedItem._id || updatedItem.id)
+          ? updatedItem
+          : item
+      ));
+      setItemToEdit(null);
+      toast.success('Inventory updated successfully.');
+    } catch (error) {
+      toast.error(error.message || 'Failed to update inventory item.');
+    }
+  };
+
+  const lowStockItems = inventoryDisplay.filter((item) => item.status !== 'In Stock');
+
+  if (isLoading) {
+    return (
+      <div className="rounded-2xl border border-dashed border-white/10 bg-[#0a0a0a] p-10 text-center text-gray-400">
+        Loading inventory from the database...
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -94,17 +160,12 @@ const ManageInventory = () => {
               </tr>
             </thead>
             <tbody>
-              {inventory.map((item, i) => {
-                let status = 'In Stock';
-                let colorClass = 'text-green-500 bg-green-500/10 border-green-500/30';
-                
-                if (item.stock === 0) {
-                  status = 'Out of Stock';
-                  colorClass = 'text-red-500 bg-red-500/10 border-red-500/30';
-                } else if (item.stock <= item.threshold) {
-                  status = 'Low Stock';
-                  colorClass = 'text-yellow-500 bg-yellow-500/10 border-yellow-500/30';
-                }
+              {inventoryDisplay.map((item, i) => {
+                const statusColor = item.status === 'Out of Stock'
+                  ? 'text-red-500 bg-red-500/10 border-red-500/30'
+                  : item.status === 'Low Stock'
+                    ? 'text-yellow-500 bg-yellow-500/10 border-yellow-500/30'
+                    : 'text-green-500 bg-green-500/10 border-green-500/30';
 
                 return (
                   <motion.tr 
@@ -114,18 +175,18 @@ const ManageInventory = () => {
                     transition={{ delay: i * 0.05 }}
                     className="border-b border-white/5 hover:bg-white/5 transition-colors"
                   >
-                    <td className="px-6 py-4 font-mono text-gray-500">{item.id}</td>
+                    <td className="px-6 py-4 font-mono text-gray-500">{item.sku}</td>
                     <td className="px-6 py-4 font-medium text-white">{item.item}</td>
                     <td className="px-6 py-4 text-xs text-gray-400 uppercase tracking-wide">{item.type}</td>
                     <td className="px-6 py-4">
-                      <span className={`font-bold ${item.stock <= item.threshold ? 'text-red-400' : 'text-white'}`}>
+                      <span className={`font-bold ${item.status !== 'In Stock' ? 'text-red-400' : 'text-white'}`}>
                         {item.stock}
-                      </span> 
+                      </span>
                       <span className="text-gray-500 ml-1 text-xs">{item.unit}</span>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium border ${colorClass}`}>
-                        {status}
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium border ${statusColor}`}>
+                        {item.status}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-center">
@@ -150,38 +211,48 @@ const ManageInventory = () => {
       {/* Add Inventory Modal */}
       <AdminModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} title="Add Inventory Item">
         <form onSubmit={handleAddSubmit} className="space-y-4">
+          <div>
+            <label className="text-sm text-gray-400 mb-1 block">Inventory Product</label>
+            <select
+              required
+              value={formData.product}
+              onChange={(e) => setFormData({ ...formData, product: e.target.value })}
+              className="input-field"
+            >
+              <option value="">Select product</option>
+              {products.map((product) => (
+                <option key={product._id || product.id} value={product._id || product.id}>
+                  {product.name} {product.category ? `(${product.category})` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm text-gray-400 mb-1 block">SKU / ID</label>
-              <input type="text" required value={formData.id} onChange={e => setFormData({...formData, id: e.target.value})} className="input-field" placeholder="INV-06" />
+              <label className="text-sm text-gray-400 mb-1 block">SKU</label>
+              <input
+                type="text"
+                required
+                value={formData.sku}
+                onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+                className="input-field"
+                placeholder="SKU1234"
+              />
             </div>
             <div>
-              <label className="text-sm text-gray-400 mb-1 block">Item Type</label>
-              <select value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})} className="input-field">
-                <option value="Ready-to-Wear">Ready-to-Wear</option>
-                <option value="Raw Material">Raw Material</option>
-                <option value="Accessory">Accessory</option>
-              </select>
+              <label className="text-sm text-gray-400 mb-1 block">Quantity</label>
+              <input
+                type="number"
+                required
+                min="0"
+                value={formData.quantity}
+                onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                className="input-field"
+              />
             </div>
           </div>
-          <div>
-            <label className="text-sm text-gray-400 mb-1 block">Item Name</label>
-            <input type="text" required value={formData.item} onChange={e => setFormData({...formData, item: e.target.value})} className="input-field" placeholder="Navy Blue Suit" />
-          </div>
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="text-sm text-gray-400 mb-1 block">Initial Stock</label>
-              <input type="number" required min="0" value={formData.stock} onChange={e => setFormData({...formData, stock: e.target.value})} className="input-field" />
-            </div>
-            <div>
-              <label className="text-sm text-gray-400 mb-1 block">Unit</label>
-              <input type="text" required value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} className="input-field" placeholder="units/yards" />
-            </div>
-            <div>
-              <label className="text-sm text-gray-400 mb-1 block">Low Alert at</label>
-              <input type="number" required min="0" value={formData.threshold} onChange={e => setFormData({...formData, threshold: e.target.value})} className="input-field" />
-            </div>
-          </div>
+
           <div className="pt-4 flex gap-3">
             <button type="submit" className="flex-1 btn-primary py-2 text-sm">Add Item</button>
           </div>
@@ -193,18 +264,13 @@ const ManageInventory = () => {
         {itemToEdit && (
           <form onSubmit={handleEditSubmit} className="space-y-4">
             <div className="bg-dark-200 p-4 rounded-lg border border-white/5 mb-4">
-              <p className="text-xs text-gray-500 mb-1">{itemToEdit.id}</p>
+              <p className="text-xs text-gray-500 mb-1">{itemToEdit.sku}</p>
               <p className="text-lg text-white font-medium">{itemToEdit.item}</p>
+              <p className="text-xs text-gray-400 mt-1">{itemToEdit.type}</p>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm text-gray-400 mb-1 block">Current Stock ({itemToEdit.unit})</label>
-                <input type="number" required min="0" value={itemToEdit.stock} onChange={e => setItemToEdit({...itemToEdit, stock: e.target.value})} className="input-field" />
-              </div>
-              <div>
-                <label className="text-sm text-gray-400 mb-1 block">Low Stock Alert Level</label>
-                <input type="number" required min="0" value={itemToEdit.threshold} onChange={e => setItemToEdit({...itemToEdit, threshold: e.target.value})} className="input-field" />
-              </div>
+            <div>
+              <label className="text-sm text-gray-400 mb-1 block">Quantity</label>
+              <input type="number" required min="0" value={itemToEdit.stock} onChange={e => setItemToEdit({...itemToEdit, stock: e.target.value})} className="input-field" />
             </div>
             <div className="pt-4 flex gap-3">
               <button type="submit" className="flex-1 btn-primary py-2 text-sm">Save Changes</button>

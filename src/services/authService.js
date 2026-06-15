@@ -36,7 +36,7 @@ const authService = {
   logout: () => {
     localStorage.removeItem('alfa_token');
     localStorage.removeItem('alfa_user');
-    localStorage.removeItem('alfa_auth', 'false');
+    localStorage.setItem('alfa_auth', 'false');
   }
 };
 

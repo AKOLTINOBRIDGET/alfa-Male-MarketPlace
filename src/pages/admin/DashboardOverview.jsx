@@ -1,67 +1,73 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { 
-  FaBox, FaCalendarCheck, FaChartLine, FaUserTie, 
-  FaExclamationTriangle, FaArrowRight, 
-  FaDollarSign 
+import {
+  FaBox, FaCalendarCheck, FaChartLine, FaUserTie,
+  FaExclamationTriangle, FaArrowRight,
+  FaDollarSign
 } from 'react-icons/fa';
-import { initialStaff } from '../../data/staffData';
-
-// Dynamic fallbacks matching original data
-const initialOrders = [
-  { id: 'ORD-009', customer: 'James Carter', email: 'james@example.com', date: '2026-05-15', total: 450, status: 'Processing', items: 'Classic Suit 1, Leather Belt', assignedTailor: null },
-  { id: 'ORD-008', customer: 'Michael Doe', email: 'mike@example.com', date: '2026-05-14', total: 120, status: 'Shipped', items: 'Office Shoe 2', assignedTailor: null },
-  { id: 'ORD-007', customer: 'Sarah Connor', email: 'sarah@example.com', date: '2026-05-12', total: 850, status: 'Delivered', items: 'Bespoke Suit 4, Luxury Watch 11', assignedTailor: null },
-  { id: 'ORD-010', customer: 'David Osei', email: 'david@example.com', date: '2026-05-16', total: 310, status: 'Processing', items: 'Bespoke Jacket, Trousers', assignedTailor: null }
-];
-
-const initialAppointments = [
-  { id: 'REQ-003', customer: 'David Smith', email: 'david@example.com', fabric: 'Italian Premium Wool', type: 'In-Store Appointment', date: '2026-05-20', time: 'Morning (09:00 AM - 12:00 PM)', status: 'Pending', details: null, assignedStaff: null },
-  { id: 'REQ-002', customer: 'Alex Johnson', email: 'alex@example.com', fabric: 'Plush Velvet', type: 'Manual Measurements', status: 'Contacted', details: { chest: 42, waist: 34, shoulders: 19, sleeve: 26, notes: 'Prefer a slim fit.' }, assignedStaff: null },
-  { id: 'REQ-001', customer: 'Bruce Wayne', email: 'bruce@example.com', fabric: 'Mulberry Silk Blend', type: 'Manual Measurements', status: 'Approved', details: { chest: 44, waist: 36, shoulders: 20, sleeve: 27, notes: 'Darkest black possible.' }, assignedStaff: null }
-];
+import orderService from '../../services/orderService';
+import appointmentService from '../../services/appointmentService';
+import staffService from '../../services/staffService';
+import { useToastContext } from '../../context/ToastContext';
+import { getResponseList } from '../../utils/apiResponse';
 
 const DashboardOverview = ({ setActiveTab }) => {
+  const toast = useToastContext();
   const [orders, setOrders] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [staff, setStaff] = useState([]);
   const [hoveredMonth, setHoveredMonth] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const savedOrders = localStorage.getItem('alfa_orders');
-    setOrders(savedOrders ? JSON.parse(savedOrders) : initialOrders);
+    const loadDashboardData = async () => {
+      try {
+        const [ordersRes, apptsRes, staffRes] = await Promise.all([
+          orderService.getOrders(),
+          appointmentService.getAppointments(),
+          staffService.getAllStaff()
+        ]);
 
-    const savedAppts = localStorage.getItem('alfa_appointments');
-    setAppointments(savedAppts ? JSON.parse(savedAppts) : initialAppointments);
+        setOrders(getResponseList(ordersRes));
+        setAppointments(getResponseList(apptsRes));
+        setStaff(getResponseList(staffRes));
+      } catch (error) {
+        toast.error(error.message || 'Unable to load dashboard data from the database.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-    const savedStaff = localStorage.getItem('alfa_staff');
-    setStaff(savedStaff ? JSON.parse(savedStaff) : initialStaff);
-  }, []);
+    loadDashboardData();
+  }, [toast]);
 
-  // Compute stats dynamically
-  const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
-  const pendingOrdersCount = orders.filter(o => o.status === 'Processing').length;
-  const pendingAppointmentsCount = appointments.filter(a => a.status === 'Pending').length;
-  const activeTailorsCount = staff.filter(s => s.role.includes('Tailor') && s.status === 'Available').length;
+  const totalRevenue = orders.reduce((sum, order) => sum + (order.total ?? order.pricing?.total ?? 0), 0);
+  const pendingOrdersCount = orders.filter((order) => order.status === 'Processing').length;
+  const pendingAppointmentsCount = appointments.filter((appt) => appt.status === 'Pending').length;
+  const activeTailorsCount = staff.filter((member) => member.role?.toLowerCase().includes('tailor') && member.status === 'Available').length;
 
-  // Filter unassigned tasks that require attention
-  const unassignedOrders = orders.filter(o => o.assignedTailor === null && o.status === 'Processing');
-  const unassignedAppts = appointments.filter(a => a.assignedStaff === null && a.status === 'Pending');
+  const unassignedOrders = orders.filter((order) => !order.assignedTailor && order.status === 'Processing');
+  const unassignedAppts = appointments.filter((appt) => !appt.assignedStaff && ['Pending', 'Scheduled'].includes(appt.status));
   const totalAttentionRequired = unassignedOrders.length + unassignedAppts.length;
 
-  // Monthly Sales Chart Data (Jan - Jun)
   const baseSales = [800, 1400, 1100, 2400, 1900];
-  const monthlySales = [...baseSales, totalRevenue]; // Use current dynamic revenue as latest month (June)
+  const monthlySales = [...baseSales, totalRevenue];
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
 
-  // Circular Target Gauge calculations
-  const targetRevenue = 5000; // Monthly Goal
+  const targetRevenue = 5000;
   const goalPercentage = Math.min(Math.round((totalRevenue / targetRevenue) * 100), 100);
   const strokeWidth = 8;
   const radius = 50;
   const normalizedRadius = radius - strokeWidth / 2;
   const circumference = normalizedRadius * 2 * Math.PI;
   const strokeDashoffset = circumference - (goalPercentage / 100) * circumference;
+
+  if (isLoading) {
+    return (
+      <div className="rounded-2xl border border-dashed border-white/10 bg-[#0a0a0a] p-10 text-center text-gray-400">
+        Loading dashboard data...
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -275,14 +281,16 @@ const DashboardOverview = ({ setActiveTab }) => {
               ) : (
                 <div className="space-y-3">
                   {unassignedOrders.map(order => (
-                    <div key={order.id} className="p-4 rounded-xl bg-white/5 border border-white/15 hover:border-gold-500/30 transition-all flex justify-between items-center gap-4">
+                    <div key={order._id || order.id} className="p-4 rounded-xl bg-white/5 border border-white/15 hover:border-gold-500/30 transition-all flex justify-between items-center gap-4">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-gold-500 font-mono font-bold">{order.id}</span>
-                          <span className="text-xs text-gray-500">• {order.date}</span>
+                          <span className="text-xs text-gold-500 font-mono font-bold">{order.orderNumber || order._id?.slice(-6) || order.id}</span>
+                          <span className="text-xs text-gray-500">{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : '-'}</span>
                         </div>
-                        <p className="text-sm text-white font-medium mt-1">{order.customer}</p>
-                        <p className="text-xs text-gray-400 truncate max-w-[180px] mt-0.5">{order.items}</p>
+                        <p className="text-sm text-white font-medium mt-1">{order.customer?.name || 'Unknown Customer'}</p>
+                        <p className="text-xs text-gray-400 truncate max-w-[180px] mt-0.5">
+                          {order.items?.map((item) => item.name).join(', ') || 'No items'}
+                        </p>
                       </div>
                       <button 
                         onClick={() => setActiveTab('orders')}
@@ -304,14 +312,14 @@ const DashboardOverview = ({ setActiveTab }) => {
               ) : (
                 <div className="space-y-3">
                   {unassignedAppts.map(appt => (
-                    <div key={appt.id} className="p-4 rounded-xl bg-white/5 border border-white/15 hover:border-gold-500/30 transition-all flex justify-between items-center gap-4">
+                    <div key={appt._id || appt.id} className="p-4 rounded-xl bg-white/5 border border-white/15 hover:border-gold-500/30 transition-all flex justify-between items-center gap-4">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-gold-500 font-mono font-bold">{appt.id}</span>
-                          <span className="text-xs text-purple-400 bg-purple-500/15 border border-purple-500/25 px-1.5 py-0.5 rounded text-[10px]">{appt.type}</span>
+                          <span className="text-xs text-gold-500 font-mono font-bold">{appt._id?.slice(-6) || appt.id}</span>
+                          <span className="text-xs text-purple-400 bg-purple-500/15 border border-purple-500/25 px-1.5 py-0.5 rounded text-[10px]">{appt.serviceType}</span>
                         </div>
-                        <p className="text-sm text-white font-medium mt-1">{appt.customer}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{appt.fabric}</p>
+                        <p className="text-sm text-white font-medium mt-1">{appt.customer?.name || 'Unknown Customer'}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{appt.notes || 'No notes added'}</p>
                       </div>
                       <button 
                         onClick={() => setActiveTab('appointments')}

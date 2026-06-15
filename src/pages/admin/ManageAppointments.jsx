@@ -1,53 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FaEye, FaTimes, FaUserTie, FaCheckCircle,
-  FaStar, FaBriefcase, FaCalendarCheck,
+  FaStar, FaBriefcase,
 } from 'react-icons/fa';
 import AdminModal from '../../components/admin/AdminModal';
-import { initialStaff, rankTailorsForOrder } from '../../data/staffData';
+import { rankTailorsForOrder } from '../../data/staffData';
+import appointmentService from '../../services/appointmentService';
+import staffService from '../../services/staffService';
+import { useToastContext } from '../../context/ToastContext';
+import { getResponseList } from '../../utils/apiResponse';
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
-const initialAppointments = [
-  {
-    id: 'REQ-003',
-    customer: 'David Smith',
-    email: 'david@example.com',
-    fabric: 'Italian Premium Wool',
-    type: 'In-Store Appointment',
-    date: '2026-05-20',
-    time: 'Morning (09:00 AM - 12:00 PM)',
-    status: 'Pending',
-    details: null,
-    assignedStaff: null,
-  },
-  {
-    id: 'REQ-002',
-    customer: 'Alex Johnson',
-    email: 'alex@example.com',
-    fabric: 'Plush Velvet',
-    type: 'Manual Measurements',
-    status: 'Contacted',
-    details: { chest: 42, waist: 34, shoulders: 19, sleeve: 26, notes: 'Prefer a slim fit.' },
-    assignedStaff: null,
-  },
-  {
-    id: 'REQ-001',
-    customer: 'Bruce Wayne',
-    email: 'bruce@example.com',
-    fabric: 'Mulberry Silk Blend',
-    type: 'Manual Measurements',
-    status: 'Approved',
-    details: { chest: 44, waist: 36, shoulders: 20, sleeve: 27, notes: 'Darkest black possible.' },
-    assignedStaff: null,
-  },
-];
-
-// ─── Status / availability colours ────────────────────────────────────────────
 const statusColors = {
-  Pending:   'text-yellow-500 bg-yellow-500/10 border-yellow-500/30',
-  Contacted: 'text-blue-400  bg-blue-400/10  border-blue-400/30',
-  Approved:  'text-green-500 bg-green-500/10 border-green-500/30',
+  Scheduled: 'text-yellow-500 bg-yellow-500/10 border-yellow-500/30',
+  Completed: 'text-green-500 bg-green-500/10 border-green-500/30',
+  Cancelled: 'text-red-500 bg-red-500/10 border-red-500/30',
+  'No Show': 'text-orange-500 bg-orange-500/10 border-orange-500/30'
 };
 
 const availabilityColors = {
@@ -56,22 +24,21 @@ const availabilityColors = {
   'Off Duty':       { dot: 'bg-gray-500',  label: 'text-gray-400',  badge: 'border-gray-500/30 bg-gray-500/10'  },
 };
 
-// Build a search string for skill matching from appointment fields
+const appointmentStatusOptions = ['Scheduled', 'Completed', 'Cancelled', 'No Show'];
+
 const appointmentSearchString = (appt) =>
-  `${appt.fabric} ${appt.type}`;
+  `${appt.serviceType || ''} ${appt.notes || ''}`;
 
-// ─── Assign Staff Modal ────────────────────────────────────────────────────────
 const AssignStaffModal = ({ appointment, staffList, onAssign, onClose }) => {
-  const [selected, setSelected]   = useState(appointment.assignedStaff?.id ?? null);
+  const [selected, setSelected] = useState(appointment.assignedStaff?._id ?? null);
   const [confirmed, setConfirmed] = useState(false);
-
   const searchStr = appointmentSearchString(appointment);
-  const ranked    = rankTailorsForOrder(staffList, searchStr);
+  const ranked = rankTailorsForOrder(staffList, searchStr);
 
   const handleConfirm = () => {
     if (!selected) return;
-    const member = staffList.find(s => s.id === selected);
-    onAssign(appointment.id, member);
+    const member = staffList.find((s) => s._id === selected);
+    onAssign(appointment._id, member);
     setConfirmed(true);
     setTimeout(onClose, 1200);
   };
@@ -87,48 +54,47 @@ const AssignStaffModal = ({ appointment, staffList, onAssign, onClose }) => {
           <FaCheckCircle size={48} className="text-green-500" />
           <p className="text-white text-lg font-serif">Staff Assigned!</p>
           <p className="text-gray-400 text-sm">
-            {staffList.find(s => s.id === selected)?.name} has been assigned to {appointment.id}.
+            {staffList.find((s) => s._id === selected)?.name} has been assigned to {appointment._id.slice(-6)}.
           </p>
         </motion.div>
       ) : (
         <>
-          {/* Appointment Summary */}
           <div className="mb-5 p-4 rounded-xl bg-white/5 border border-white/10">
             <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Appointment</p>
-            <p className="text-white font-mono font-bold">{appointment.id}</p>
+            <p className="text-white font-mono font-bold">{appointment._id.slice(-6)}</p>
             <p className="text-gray-300 text-sm mt-1">
               <span className={`px-2 py-0.5 rounded text-xs mr-2 ${
-                appointment.type === 'Manual Measurements'
+                appointment.serviceType === 'Manual Measurements'
                   ? 'bg-purple-500/10 text-purple-400'
                   : 'bg-orange-500/10 text-orange-400'
-              }`}>{appointment.type}</span>
-              {appointment.fabric}
+              }`}>
+                {appointment.serviceType}
+              </span>
+              {new Date(appointment.date).toLocaleDateString()}
             </p>
           </div>
 
-          {/* Legend */}
           <div className="flex items-center gap-4 mb-4 text-xs text-gray-500">
             <span className="flex items-center gap-1"><FaStar className="text-gold-500" /> Skill match</span>
             <span className="flex items-center gap-1"><FaBriefcase className="text-gray-400" /> Current load</span>
           </div>
 
-          {/* Staff List */}
           <div className="space-y-3 max-h-[340px] overflow-y-auto custom-scrollbar pr-1">
             {ranked.map((member, i) => {
               const av = availabilityColors[member.status] ?? availabilityColors['Off Duty'];
-              const isSelected = selected === member.id;
-              const matchedSkills = member.skills.filter(s =>
+              const isSelected = selected === member._id;
+              const matchedSkills = member.skills.filter((s) =>
                 searchStr.toLowerCase().includes(s.toLowerCase())
               );
               const skillScore = matchedSkills.length;
 
               return (
                 <motion.button
-                  key={member.id}
+                  key={member._id}
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.05 }}
-                  onClick={() => setSelected(member.id)}
+                  onClick={() => setSelected(member._id)}
                   className={`w-full text-left p-4 rounded-xl border transition-all duration-200 ${
                     isSelected
                       ? 'border-gold-500 bg-gold-500/10 shadow-[0_0_12px_rgba(var(--color-gold-500),0.2)]'
@@ -136,7 +102,6 @@ const AssignStaffModal = ({ appointment, staffList, onAssign, onClose }) => {
                   } ${member.status !== 'Available' ? 'opacity-60' : ''}`}
                 >
                   <div className="flex items-center justify-between">
-                    {/* Left: avatar + name */}
                     <div className="flex items-center gap-3">
                       <div className="relative">
                         <div className="w-10 h-10 rounded-full bg-dark-200 border border-white/10 flex items-center justify-center flex-shrink-0">
@@ -150,7 +115,6 @@ const AssignStaffModal = ({ appointment, staffList, onAssign, onClose }) => {
                       </div>
                     </div>
 
-                    {/* Right: stats */}
                     <div className="flex items-center gap-3 flex-shrink-0">
                       {skillScore > 0 && (
                         <span className="flex items-center gap-1 text-xs text-gold-500 bg-gold-500/10 border border-gold-500/30 px-2 py-0.5 rounded-full">
@@ -168,10 +132,9 @@ const AssignStaffModal = ({ appointment, staffList, onAssign, onClose }) => {
                     </div>
                   </div>
 
-                  {/* Matched skill chips */}
                   {matchedSkills.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2 ml-13">
-                      {matchedSkills.map(s => (
+                      {matchedSkills.map((s) => (
                         <span key={s} className="text-[10px] text-gray-400 bg-white/5 border border-white/10 px-2 py-0.5 rounded-full">
                           {s}
                         </span>
@@ -183,7 +146,6 @@ const AssignStaffModal = ({ appointment, staffList, onAssign, onClose }) => {
             })}
           </div>
 
-          {/* Actions */}
           <div className="flex gap-3 mt-5 pt-5 border-t border-white/10">
             <button
               onClick={onClose}
@@ -205,7 +167,6 @@ const AssignStaffModal = ({ appointment, staffList, onAssign, onClose }) => {
   );
 };
 
-// ─── Details Modal ─────────────────────────────────────────────────────────────
 const DetailsModal = ({ appointment, onClose }) => (
   <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
     <motion.div
@@ -225,25 +186,26 @@ const DetailsModal = ({ appointment, onClose }) => (
         <FaTimes size={20} />
       </button>
 
-      <h3 className="text-2xl font-serif text-gold-500 mb-6">Request {appointment.id}</h3>
+      <h3 className="text-2xl font-serif text-gold-500 mb-6">Request {appointment._id.slice(-6)}</h3>
 
       <div className="space-y-6">
         <div>
           <p className="text-sm text-gray-500 mb-1">Customer</p>
           <p className="text-lg text-white">
-            {appointment.customer}{' '}
-            <span className="text-sm text-gray-400">({appointment.email})</span>
+            {appointment.customer?.name || 'Unknown Customer'}{' '}
+            <span className="text-sm text-gray-400">({appointment.customer?.email || 'No email'})</span>
           </p>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-dark-200 p-4 rounded-lg border border-white/5">
-            <p className="text-xs text-gray-500 mb-1">Fabric Choice</p>
-            <p className="text-white">{appointment.fabric}</p>
+            <p className="text-xs text-gray-500 mb-1">Service</p>
+            <p className="text-white">{appointment.serviceType}</p>
           </div>
           <div className="bg-dark-200 p-4 rounded-lg border border-white/5">
-            <p className="text-xs text-gray-500 mb-1">Request Type</p>
-            <p className="text-white">{appointment.type}</p>
+            <p className="text-xs text-gray-500 mb-1">Date / Time</p>
+            <p className="text-white">{new Date(appointment.date).toLocaleDateString()}</p>
+            <p className="text-gray-400 text-sm mt-1">{appointment.time}</p>
           </div>
         </div>
 
@@ -258,29 +220,10 @@ const DetailsModal = ({ appointment, onClose }) => (
           </div>
         )}
 
-        {appointment.type === 'In-Store Appointment' ? (
+        {appointment.notes && (
           <div className="bg-dark-200 p-5 rounded-lg border border-gold-500/20">
-            <h4 className="text-gold-500 font-serif mb-3 flex items-center gap-2">
-              <FaCalendarCheck size={14} /> Appointment Details
-            </h4>
-            <p className="text-gray-300"><strong className="text-white">Date:</strong> {appointment.date}</p>
-            <p className="text-gray-300 mt-2"><strong className="text-white">Time:</strong> {appointment.time}</p>
-          </div>
-        ) : (
-          <div className="bg-dark-200 p-5 rounded-lg border border-gold-500/20">
-            <h4 className="text-gold-500 font-serif mb-3">Manual Measurements</h4>
-            <div className="grid grid-cols-2 gap-4">
-              <p className="text-gray-300"><strong className="text-white">Chest:</strong> {appointment.details.chest}"</p>
-              <p className="text-gray-300"><strong className="text-white">Waist:</strong> {appointment.details.waist}"</p>
-              <p className="text-gray-300"><strong className="text-white">Shoulders:</strong> {appointment.details.shoulders}"</p>
-              <p className="text-gray-300"><strong className="text-white">Sleeve:</strong> {appointment.details.sleeve}"</p>
-            </div>
-            {appointment.details.notes && (
-              <div className="mt-4 pt-4 border-t border-white/10">
-                <p className="text-sm text-gray-500 mb-1">Notes</p>
-                <p className="text-gray-300 text-sm italic">"{appointment.details.notes}"</p>
-              </div>
-            )}
+            <h4 className="text-gold-500 font-serif mb-3">Notes</h4>
+            <p className="text-gray-300 text-sm">{appointment.notes}</p>
           </div>
         )}
 
@@ -293,38 +236,67 @@ const DetailsModal = ({ appointment, onClose }) => (
   </div>
 );
 
-// ─── Main ──────────────────────────────────────────────────────────────────────
 const ManageAppointments = () => {
-  const [appointments, setAppointments] = useState(() => {
-    const saved = localStorage.getItem('alfa_appointments');
-    return saved ? JSON.parse(saved) : initialAppointments;
-  });
-  const [staffList, setStaffList]       = useState(() => {
-    const saved = localStorage.getItem('alfa_staff');
-    return saved ? JSON.parse(saved) : initialStaff;
-  });
-  const [viewingAppt, setViewingAppt]   = useState(null);
+  const toast = useToastContext();
+  const [appointments, setAppointments] = useState([]);
+  const [staffList, setStaffList] = useState([]);
+  const [viewingAppt, setViewingAppt] = useState(null);
   const [assigningAppt, setAssigningAppt] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleStatusChange = (id, newStatus) => {
-    const updated = appointments.map(a => a.id === id ? { ...a, status: newStatus } : a);
-    setAppointments(updated);
-    localStorage.setItem('alfa_appointments', JSON.stringify(updated));
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [appointmentsResponse, staffResponse] = await Promise.all([
+          appointmentService.getAppointments(),
+          staffService.getAllStaff()
+        ]);
+        setAppointments(getResponseList(appointmentsResponse));
+        setStaffList(getResponseList(staffResponse));
+      } catch (error) {
+        toast.error(error.message || 'Unable to load appointments and staff from the database.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, [toast]);
+
+  const handleStatusChange = async (id, newStatus) => {
+    try {
+      await appointmentService.updateAppointment(id, { status: newStatus });
+      setAppointments((current) => current.map((appt) =>
+        appt._id === id ? { ...appt, status: newStatus } : appt
+      ));
+      toast.success('Appointment status updated.');
+    } catch (error) {
+      toast.error(error.message || 'Failed to update appointment status.');
+    }
   };
 
-  const handleAssignStaff = (apptId, member) => {
-    const updatedAppts = appointments.map(a =>
-      a.id === apptId ? { ...a, assignedStaff: member } : a
-    );
-    setAppointments(updatedAppts);
-    localStorage.setItem('alfa_appointments', JSON.stringify(updatedAppts));
-
-    const updatedStaff = staffList.map(s =>
-      s.id === member.id ? { ...s, assignedReqs: s.assignedReqs + 1 } : s
-    );
-    setStaffList(updatedStaff);
-    localStorage.setItem('alfa_staff', JSON.stringify(updatedStaff));
+  const handleAssignStaff = async (apptId, member) => {
+    try {
+      await appointmentService.updateAppointment(apptId, { assignedStaff: member._id });
+      setAppointments((current) => current.map((appt) =>
+        appt._id === apptId ? { ...appt, assignedStaff: member } : appt
+      ));
+      setStaffList((current) => current.map((staff) =>
+        staff._id === member._id ? { ...staff, assignedReqs: (staff.assignedReqs ?? 0) + 1 } : staff
+      ));
+      toast.success('Staff assigned successfully.');
+    } catch (error) {
+      toast.error(error.message || 'Failed to assign staff.');
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="rounded-2xl border border-dashed border-white/10 bg-[#0a0a0a] p-10 text-center text-gray-400">
+        Loading appointments from the database...
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -342,8 +314,9 @@ const ManageAppointments = () => {
               <tr>
                 <th className="px-6 py-4 font-medium">Req ID</th>
                 <th className="px-6 py-4 font-medium">Customer</th>
-                <th className="px-6 py-4 font-medium">Fabric</th>
-                <th className="px-6 py-4 font-medium">Type</th>
+                <th className="px-6 py-4 font-medium">Service</th>
+                <th className="px-6 py-4 font-medium">Date</th>
+                <th className="px-6 py-4 font-medium">Time</th>
                 <th className="px-6 py-4 font-medium text-center">Assigned Staff</th>
                 <th className="px-6 py-4 font-medium text-center">Status</th>
                 <th className="px-6 py-4 font-medium text-center">Actions</th>
@@ -352,29 +325,21 @@ const ManageAppointments = () => {
             <tbody>
               {appointments.map((appt, i) => (
                 <motion.tr
-                  key={appt.id}
+                  key={appt._id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.05 }}
                   className="border-b border-white/5 hover:bg-white/5 transition-colors"
                 >
-                  <td className="px-6 py-4 font-mono text-gold-500 font-bold">{appt.id}</td>
+                  <td className="px-6 py-4 font-mono text-gold-500 font-bold">{appt._id.slice(-6)}</td>
                   <td className="px-6 py-4">
-                    <p className="text-white font-medium">{appt.customer}</p>
-                    <p className="text-xs text-gray-500">{appt.email}</p>
+                    <p className="text-white font-medium">{appt.customer?.name || 'Unknown'}</p>
+                    <p className="text-xs text-gray-500">{appt.customer?.email || ''}</p>
                   </td>
-                  <td className="px-6 py-4">{appt.fabric}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded text-xs ${
-                      appt.type === 'Manual Measurements'
-                        ? 'bg-purple-500/10 text-purple-400'
-                        : 'bg-orange-500/10 text-orange-400'
-                    }`}>
-                      {appt.type}
-                    </span>
-                  </td>
+                  <td className="px-6 py-4">{appt.serviceType}</td>
+                  <td className="px-6 py-4">{new Date(appt.date).toLocaleDateString()}</td>
+                  <td className="px-6 py-4">{appt.time}</td>
 
-                  {/* Assigned Staff */}
                   <td className="px-6 py-4 text-center">
                     {appt.assignedStaff ? (
                       <div className="flex flex-col items-center gap-0.5">
@@ -386,17 +351,14 @@ const ManageAppointments = () => {
                     )}
                   </td>
 
-                  {/* Status */}
                   <td className="px-6 py-4 text-center">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium border ${statusColors[appt.status]}`}>
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium border ${statusColors[appt.status] || 'text-gray-400 bg-white/5 border-gray-500/30'}`}>
                       {appt.status}
                     </span>
                   </td>
 
-                  {/* Actions */}
                   <td className="px-6 py-4 text-center">
                     <div className="flex items-center justify-center gap-2">
-                      {/* View details */}
                       <button
                         onClick={() => setViewingAppt(appt)}
                         className="bg-white/10 hover:bg-white/20 text-white p-1.5 rounded transition"
@@ -405,18 +367,16 @@ const ManageAppointments = () => {
                         <FaEye />
                       </button>
 
-                      {/* Status change */}
                       <select
                         value={appt.status}
-                        onChange={(e) => handleStatusChange(appt.id, e.target.value)}
+                        onChange={(e) => handleStatusChange(appt._id, e.target.value)}
                         className="bg-dark border border-white/20 text-white text-xs rounded px-2 py-1.5 focus:outline-none focus:border-gold-500"
                       >
-                        <option value="Pending">Pending</option>
-                        <option value="Contacted">Contacted</option>
-                        <option value="Approved">Approved</option>
+                        {appointmentStatusOptions.map((statusValue) => (
+                          <option key={statusValue} value={statusValue}>{statusValue}</option>
+                        ))}
                       </select>
 
-                      {/* Assign staff */}
                       <button
                         onClick={() => setAssigningAppt(appt)}
                         className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-all duration-200 whitespace-nowrap ${
@@ -437,14 +397,12 @@ const ManageAppointments = () => {
         </div>
       </div>
 
-      {/* Details Modal */}
       <AnimatePresence>
         {viewingAppt && (
           <DetailsModal appointment={viewingAppt} onClose={() => setViewingAppt(null)} />
         )}
       </AnimatePresence>
 
-      {/* Assign Staff Modal */}
       <AnimatePresence>
         {assigningAppt && (
           <AssignStaffModal

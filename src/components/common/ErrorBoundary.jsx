@@ -6,7 +6,8 @@ class ErrorBoundary extends Component {
     this.state = { hasError: false, error: null, errorInfo: null };
   }
 
-  static getDerivedStateFromError(error) {
+  // eslint-disable-next-line no-unused-vars
+  static getDerivedStateFromError(_error) {
     return { hasError: true };
   }
 
@@ -32,7 +33,7 @@ class ErrorBoundary extends Component {
             <p className="text-gray-400 mb-8">
               We're sorry for the inconvenience. Please try refreshing the page.
             </p>
-            {process.env.NODE_ENV === 'development' && this.state.error && (
+            {import.meta.env.DEV && this.state.error && (
               <details className="text-left bg-dark-100 p-4 rounded-lg mb-4 border border-red-500/20">
                 <summary className="text-red-400 cursor-pointer mb-2">Error Details</summary>
                 <pre className="text-xs text-gray-400 overflow-auto">

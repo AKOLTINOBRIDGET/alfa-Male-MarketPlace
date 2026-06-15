@@ -18,13 +18,22 @@
     @apply bg-dark-100/80 backdrop-blur-md border-b border-white/5;
   }
   .btn-primary {
-    @apply bg-gold-500 hover:bg-gold-400 text-dark font-medium py-3 px-8 rounded-full transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-[0_0_15px_rgba(201,168,76,0.3)] hover:shadow-[0_0_25px_rgba(201,168,76,0.5)];
+    @apply bg-gold-500 hover:bg-gold-400 text-dark font-medium py-2.5 px-6 sm:py-3 sm:px-8 rounded-full transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-[0_0_15px_rgba(201,168,76,0.3)] hover:shadow-[0_0_25px_rgba(201,168,76,0.5)] text-sm sm:text-base;
   }
   .btn-outline {
-    @apply border border-gold-500 text-gold-500 hover:bg-gold-500 hover:text-dark font-medium py-3 px-8 rounded-full transition-all duration-300;
+    @apply border border-gold-500 text-gold-500 hover:bg-gold-500 hover:text-dark font-medium py-2.5 px-6 sm:py-3 sm:px-8 rounded-full transition-all duration-300 text-sm sm:text-base;
   }
   .input-field {
-    @apply w-full bg-dark-200 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 transition-colors duration-300;
+    @apply w-full bg-dark-200 border border-white/10 rounded-lg px-3 py-2.5 sm:px-4 sm:py-3 text-white placeholder-gray-400 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-500 transition-colors duration-300 text-sm sm:text-base;
+  }
+  .container {
+    @apply mx-auto px-4 sm:px-6 lg:px-8;
+  }
+  .section-padding {
+    @apply py-8 sm:py-12 md:py-16 lg:py-20;
+  }
+  .card {
+    @apply bg-dark-100 rounded-lg sm:rounded-xl border border-white/5 p-4 sm:p-6 lg:p-8;
   }
 }
 

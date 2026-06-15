@@ -71,6 +71,18 @@ const userService = {
   getCustomers: async (params = {}) => {
     const response = await api.get('/users/customers', { params });
     return response;
+  },
+
+  // Admin: Get all users
+  getAdminUsers: async () => {
+    const response = await api.get('/admin/users');
+    return response;
+  },
+
+  // Admin: Create a new user
+  createAdminUser: async (userData) => {
+    const response = await api.post('/admin/users', userData);
+    return response;
   }
 };
 

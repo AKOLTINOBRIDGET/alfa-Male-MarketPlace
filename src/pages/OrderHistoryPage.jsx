@@ -1,13 +1,11 @@
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { FaBox, FaCheckCircle, FaTruck, FaClock, FaUser, FaSignOutAlt } from 'react-icons/fa';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-
-const mockOrders = [
-  { id: 'ORD-001', date: '2025-04-10', total: 520, status: 'Delivered', items: ['Luxury Watch 14', 'Classic Suit 4'] },
-  { id: 'ORD-002', date: '2025-03-22', total: 85, status: 'Processing', items: ['Casual Wear 2'] },
-  { id: 'ORD-003', date: '2025-02-15', total: 340, status: 'Shipped', items: ['Office Shoe 11', 'Luxury Watch 1'] },
-];
+import orderService from '../services/orderService';
+import { useToastContext } from '../context/ToastContext';
+import { getResponseList } from '../utils/apiResponse';
 
 const statusConfig = {
   Delivered: { icon: FaCheckCircle, color: 'text-green-500', bg: 'bg-green-500/10' },
@@ -17,6 +15,36 @@ const statusConfig = {
 
 const OrderHistoryPage = () => {
   const { isAuthenticated, user, logout } = useAuth();
+  const toast = useToastContext();
+  const location = useLocation();
+  const [orders, setOrders] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadOrders = async () => {
+      if (!isAuthenticated) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const response = await orderService.getMyOrders();
+        setOrders(getResponseList(response));
+      } catch (error) {
+        toast.error(error.message || 'Unable to load your orders.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadOrders();
+  }, [isAuthenticated, toast]);
+
+  const getOrderId = (order) => order.orderNumber || order._id?.slice(-6) || order.id;
+  const getOrderTotal = (order) => order.pricing?.total ?? order.total ?? 0;
+  const getOrderItems = (order) => (
+    order.items?.map((item) => item.name || item.product?.name || 'Item').join(', ') || 'No items'
+  );
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ message: 'Please sign in to view your order history.' }} replace />;
@@ -31,6 +59,9 @@ const OrderHistoryPage = () => {
           <div>
             <h1 className="text-4xl font-serif text-white mb-1">My Account</h1>
             <p className="text-gray-400">Welcome back, <span className="text-gold-500">{user?.name || 'Valued Customer'}</span></p>
+            {location.state?.orderId && (
+              <p className="text-sm text-green-400 mt-2">Your latest order was confirmed.</p>
+            )}
           </div>
           <button 
             onClick={logout}
@@ -44,9 +75,9 @@ const OrderHistoryPage = () => {
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12">
           {[
-            { icon: FaBox, label: 'Total Orders', value: mockOrders.length },
-            { icon: FaCheckCircle, label: 'Delivered', value: mockOrders.filter(o => o.status === 'Delivered').length },
-            { icon: FaTruck, label: 'In Transit', value: mockOrders.filter(o => o.status === 'Shipped').length },
+            { icon: FaBox, label: 'Total Orders', value: orders.length },
+            { icon: FaCheckCircle, label: 'Delivered', value: orders.filter(o => o.status === 'Delivered').length },
+            { icon: FaTruck, label: 'In Transit', value: orders.filter(o => ['Shipped', 'Ready for Fitting'].includes(o.status)).length },
           ].map((stat, i) => (
             <motion.div
               key={i}
@@ -85,7 +116,11 @@ const OrderHistoryPage = () => {
             <FaBox /> Order History
           </h2>
 
-          {mockOrders.length === 0 ? (
+          {isLoading ? (
+            <div className="text-center py-12 text-gray-500">
+              Loading your orders...
+            </div>
+          ) : orders.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
               <FaBox size={48} className="mx-auto mb-4 opacity-30" />
               <p>No orders yet.</p>
@@ -93,11 +128,11 @@ const OrderHistoryPage = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              {mockOrders.map((order, i) => {
-                const { icon: StatusIcon, color, bg } = statusConfig[order.status];
+              {orders.map((order, i) => {
+                const { icon: StatusIcon, color, bg } = statusConfig[order.status] || statusConfig.Processing;
                 return (
                   <motion.div 
-                    key={order.id}
+                    key={order._id || order.id}
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.1 }}
@@ -105,16 +140,16 @@ const OrderHistoryPage = () => {
                   >
                     <div>
                       <div className="flex items-center gap-3 mb-2">
-                        <span className="font-mono text-gold-500 font-bold">{order.id}</span>
+                        <span className="font-mono text-gold-500 font-bold">{getOrderId(order)}</span>
                         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${bg} ${color}`}>
                           <StatusIcon size={10} /> {order.status}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-400">{order.items.join(', ')}</p>
-                      <p className="text-xs text-gray-600 mt-1">{order.date}</p>
+                      <p className="text-sm text-gray-400">{getOrderItems(order)}</p>
+                      <p className="text-xs text-gray-600 mt-1">{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : '-'}</p>
                     </div>
                     <div className="flex items-center justify-between sm:justify-end sm:flex-col sm:items-end gap-2">
-                      <p className="text-gold-500 text-xl font-serif">${order.total}</p>
+                      <p className="text-gold-500 text-xl font-serif">${getOrderTotal(order)}</p>
                     </div>
                   </motion.div>
                 );

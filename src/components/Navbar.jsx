@@ -22,7 +22,8 @@ const Navbar = () => {
 
   // Close mobile menu on route change
   useEffect(() => {
-    setMobileMenuOpen(false);
+    const timer = setTimeout(() => setMobileMenuOpen(false), 0);
+    return () => clearTimeout(timer);
   }, [location]);
 
   const navLinks = [
@@ -89,6 +90,7 @@ const Navbar = () => {
             </AnimatePresence>
             <button 
               onClick={() => setSearchOpen(!searchOpen)}
+              aria-label={searchOpen ? 'Close search' : 'Open search'}
               className="text-gray-300 hover:text-gold-500 transition"
             >
               <FaSearch size={18} />
@@ -98,6 +100,7 @@ const Navbar = () => {
           {/* Cart */}
           <button 
             onClick={() => setIsCartOpen(true)}
+            aria-label="Open cart"
             className="relative text-gray-300 hover:text-gold-500 transition"
           >
             <FaShoppingCart size={20} />
@@ -139,6 +142,7 @@ const Navbar = () => {
           <button 
             className="md:hidden text-gray-300 hover:text-gold-500"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
           >
             {mobileMenuOpen ? <FaTimes size={24} /> : <FaBars size={24} />}
           </button>

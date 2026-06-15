@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { FaCloudUploadAlt, FaTimes, FaImage } from 'react-icons/fa';
-import LoadingSpinner from './LoadingSpinner';
+import { FaCloudUploadAlt, FaTimes } from 'react-icons/fa';
 
 const ImageUpload = ({ 
   onImagesSelected, 

@@ -12,6 +12,7 @@ export const useCart = () => {
 };
 
 export const CartProvider = ({ children }) => {
+  const [isCartOpen, setIsCartOpen] = useState(false);
   const [cartItems, setCartItems] = useState(() => {
     const saved = localStorage.getItem('alfa_cart');
     return saved ? JSON.parse(saved) : [];
@@ -23,15 +24,15 @@ export const CartProvider = ({ children }) => {
 
   const addToCart = (product, quantity = 1, variant = null) => {
     setCartItems(prev => {
-      const itemKey = variant ? `${product.id}-${variant.sku}` : product.id;
+      const itemKey = getCartItemKey(product, variant);
       const existing = prev.find(item => {
-        const existingKey = item.variant ? `${item.id}-${item.variant.sku}` : item.id;
+        const existingKey = getCartItemKey(item, item.variant);
         return existingKey === itemKey;
       });
 
       if (existing) {
         return prev.map(item => {
-          const existingKey = item.variant ? `${item.id}-${item.variant.sku}` : item.id;
+          const existingKey = getCartItemKey(item, item.variant);
           return existingKey === itemKey
             ? { ...item, quantity: item.quantity + quantity }
             : item;
@@ -111,9 +112,17 @@ export const CartProvider = ({ children }) => {
       clearCart,
       getItemQuantity,
       cartTotal,
-      cartCount
+      cartCount,
+      isCartOpen,
+      setIsCartOpen
     }}>
       {children}
     </CartContext.Provider>
   );
+};
+
+const getCartItemKey = (product, variant = null) => {
+  const selectedVariant = variant || product.variant;
+  const selectedSize = selectedVariant?.sku || product.selectedSize;
+  return selectedSize ? `${product.id}-${selectedSize}` : `${product.id}`;
 };

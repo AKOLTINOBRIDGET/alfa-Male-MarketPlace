@@ -30,7 +30,7 @@ const CheckoutPage = () => {
   const [orderId, setOrderId] = useState('');
 
   const { cartItems, cartTotal, clearCart } = useCart();
-  const { user } = useAuth();
+  useAuth();
   const toast = useToastContext();
   const navigate = useNavigate();
   const { loading, execute } = useAsync();
@@ -50,7 +50,7 @@ const CheckoutPage = () => {
         items: cartItems.map(item => ({
           product: item._id || item.id,
           quantity: item.quantity,
-          variant: item.variant
+          variant: item.variant || (item.selectedSize ? { sku: item.selectedSize, name: item.selectedSize } : undefined)
         })),
         shippingAddress: shippingInfo,
         billingAddress: { sameAsShipping: true },
@@ -60,6 +60,9 @@ const CheckoutPage = () => {
 
       const orderResponse = await execute(() => orderService.createOrder(orderData));
       const createdOrder = orderResponse.data;
+      if (!createdOrder?._id) {
+        throw new Error('Order could not be created. Please try again.');
+      }
       setOrderId(createdOrder._id);
 
       // Create payment intent
@@ -84,7 +87,7 @@ const CheckoutPage = () => {
       toast.success('Payment successful! Order confirmed.');
       
       setTimeout(() => {
-        navigate(`/orders/${orderId}`);
+        navigate('/dashboard', { state: { orderId } });
       }, 3000);
     } catch (error) {
       toast.error(error.message || 'Failed to confirm payment');
@@ -112,12 +115,12 @@ const CheckoutPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-dark py-12">
-      <div className="container mx-auto px-4 max-w-6xl">
+    <div className="min-h-screen bg-dark py-6 sm:py-12">
+      <div className="container max-w-6xl">
         
         {/* Progress Steps */}
-        <div className="mb-12">
-          <div className="flex items-center justify-center gap-4">
+        <div className="mb-8 sm:mb-12">
+          <div className="flex items-center justify-center gap-2 sm:gap-4">
             {[
               { num: 1, label: 'Shipping', icon: FaUser },
               { num: 2, label: 'Payment', icon: FaCreditCard },
@@ -125,12 +128,12 @@ const CheckoutPage = () => {
             ].map((s, index) => (
               <div key={s.num} className="flex items-center">
                 <div
-                  className={`flex items-center gap-3 ${
+                  className={`flex items-center gap-2 sm:gap-3 ${
                     step >= s.num ? 'text-gold-500' : 'text-gray-500'
                   }`}
                 >
                   <div
-                    className={`w-12 h-12 rounded-full flex items-center justify-center border-2 ${
+                    className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center border-2 text-sm sm:text-base ${
                       step >= s.num
                         ? 'border-gold-500 bg-gold-500/10'
                         : 'border-gray-600'
@@ -138,11 +141,11 @@ const CheckoutPage = () => {
                   >
                     <s.icon />
                   </div>
-                  <span className="font-medium hidden sm:inline">{s.label}</span>
+                  <span className="font-medium hidden md:inline">{s.label}</span>
                 </div>
                 {index < 2 && (
                   <div
-                    className={`w-16 h-0.5 mx-4 ${
+                    className={`w-8 sm:w-16 h-0.5 mx-2 sm:mx-4 ${
                       step > s.num ? 'bg-gold-500' : 'bg-gray-600'
                     }`}
                   />

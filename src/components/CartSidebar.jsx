@@ -25,13 +25,14 @@ const CartSidebar = () => {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed right-0 top-0 h-full w-full max-w-md bg-dark-100 shadow-2xl z-[70] flex flex-col border-l border-white/10"
+            className="fixed right-0 top-0 h-full w-full sm:max-w-md bg-dark-100 shadow-2xl z-[70] flex flex-col border-l border-white/10"
           >
             {/* Header */}
             <div className="p-6 border-b border-white/10 flex justify-between items-center bg-dark">
               <h2 className="text-2xl font-serif text-gold-500">Your Cart</h2>
               <button 
                 onClick={() => setIsCartOpen(false)}
+                aria-label="Close cart"
                 className="text-gray-400 hover:text-white transition p-2"
               >
                 <FaTimes size={20} />
@@ -54,14 +55,24 @@ const CartSidebar = () => {
                   </button>
                 </div>
               ) : (
-                cartItems.map((item) => (
-                  <div key={item.id} className="flex gap-4 bg-dark-200/50 p-3 rounded-lg border border-white/5">
+                cartItems.map((item) => {
+                  const itemVariant = item.variant?.sku || item.selectedSize || null;
+                  const itemKey = itemVariant ? `${item.id}-${itemVariant}` : item.id;
+
+                  return (
+                  <div key={itemKey} className="flex gap-4 bg-dark-200/50 p-3 rounded-lg border border-white/5">
                     <img src={item.image} alt={item.name} className="w-20 h-24 object-cover rounded-md" />
                     <div className="flex-1 flex flex-col justify-between">
                       <div className="flex justify-between">
-                        <h4 className="font-serif text-sm text-gray-200 pr-4">{item.name}</h4>
+                        <div className="pr-4">
+                          <h4 className="font-serif text-sm text-gray-200">{item.name}</h4>
+                          {itemVariant && (
+                            <p className="text-xs text-gray-500 mt-1">Size: {itemVariant}</p>
+                          )}
+                        </div>
                         <button 
-                          onClick={() => removeFromCart(item.id)}
+                          onClick={() => removeFromCart(item.id, itemVariant)}
+                          aria-label={`Remove ${item.name}${itemVariant ? ` size ${itemVariant}` : ''}`}
                           className="text-red-400/70 hover:text-red-400 transition"
                         >
                           <FaTrash size={14} />
@@ -74,14 +85,16 @@ const CartSidebar = () => {
                         {/* Quantity Controls */}
                         <div className="flex items-center gap-3 bg-dark px-2 py-1 rounded">
                           <button 
-                            onClick={() => updateQuantity(item.id, -1)}
+                            onClick={() => updateQuantity(item.id, -1, itemVariant)}
+                            aria-label={`Decrease ${item.name}${itemVariant ? ` size ${itemVariant}` : ''} quantity`}
                             className="text-gray-400 hover:text-white"
                           >
                             <FaMinus size={10} />
                           </button>
                           <span className="text-sm w-4 text-center">{item.quantity}</span>
                           <button 
-                            onClick={() => updateQuantity(item.id, 1)}
+                            onClick={() => updateQuantity(item.id, 1, itemVariant)}
+                            aria-label={`Increase ${item.name}${itemVariant ? ` size ${itemVariant}` : ''} quantity`}
                             className="text-gray-400 hover:text-white"
                           >
                             <FaPlus size={10} />
@@ -90,7 +103,8 @@ const CartSidebar = () => {
                       </div>
                     </div>
                   </div>
-                ))
+                  );
+                })
               )}
             </div>
 
